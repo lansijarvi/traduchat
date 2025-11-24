@@ -14,20 +14,32 @@ export function FirebaseClientProvider({ children }: { children: React.ReactNode
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
+    console.log('FirebaseClientProvider useEffect running...');
+    console.log('Window exists:', typeof window !== 'undefined');
+    console.log('Firebase config:', firebaseConfig);
+    
     // Only initialize on client side
     if (typeof window !== 'undefined') {
-      const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-      const auth = getAuth(app);
-      const db = getFirestore(app);
-      const storage = getStorage(app);
-      
-      setFirebaseApp({ app, auth, db, storage });
-      setIsInitialized(true);
+      try {
+        const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+        
+        console.log('Firebase initialized!', { app, auth, db, storage });
+        
+        setFirebaseApp({ app, auth, db, storage });
+        setIsInitialized(true);
+      } catch (error) {
+        console.error('Firebase initialization error:', error);
+      }
     }
   }, []);
 
+  console.log('Provider render - isInitialized:', isInitialized, 'firebaseApp:', firebaseApp);
+
   if (!isInitialized) {
-    return <div>Loading...</div>;
+    return <div>Loading Firebase...</div>;
   }
 
   return (
