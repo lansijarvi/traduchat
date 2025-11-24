@@ -23,8 +23,10 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
+  updateProfile,
 } from "firebase/auth";
-import { useAuth } from "@/firebase";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+import { useAuth, useFirestore } from "@/firebase";
 
 
 const GoogleIcon = () => (
@@ -50,6 +52,7 @@ export function AuthForm({ type }: { type: "login" | "signup" }) {
   const { toast } = useToast();
   const router = useRouter();
   const auth = useAuth();
+  const db = useFirestore();
   const isLogin = type === "login";
 
   const currentSchema = isLogin ? loginSchema : signupSchema;
@@ -64,12 +67,22 @@ export function AuthForm({ type }: { type: "login" | "signup" }) {
   });
 
   async function onSubmit(values: z.infer<typeof currentSchema>) {
-    if (!auth) return;
+    if (!auth || !db) return;
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, values.email, values.password);
       } else if ('username' in values) {
-        await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const user = userCredential.user;
+        await updateProfile(user, { displayName: values.username });
+        const userRef = doc(db, "users", user.uid);
+        await setDoc(userRef, {
+            uid: user.uid,
+            email: user.email,
+            username: values.username,
+            displayName: values.username,
+            language: 'en',
+        });
       }
       toast({
         title: `Signed ${isLogin ? 'in' : 'up'} successfully`,
@@ -86,10 +99,27 @@ export function AuthForm({ type }: { type: "login" | "signup" }) {
   }
 
   async function onGoogleAuth() {
-    if (!auth) return;
+    if (!auth || !db) return;
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      const userRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (!userDoc.exists()) {
+        const username = user.email?.split('@')[0] || `user_${Date.now()}`;
+        await setDoc(userRef, {
+            uid: user.uid,
+            email: user.email,
+            username: username,
+            displayName: user.displayName || username,
+            avatarUrl: user.photoURL,
+            language: 'en',
+        });
+      }
+
       toast({
         title: "Signed in with Google successfully",
         description: "Redirecting to the app...",

@@ -11,13 +11,13 @@ import {
   SidebarMenuButton,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Globe, LogOut, Search, Settings } from 'lucide-react';
+import { Globe, LogOut, Search, Settings, User as UserIcon } from 'lucide-react';
 import { chats, loggedInUser } from '@/lib/data';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { useAuth } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 
@@ -29,6 +29,7 @@ interface ChatSidebarProps {
 export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) {
     const { toast } = useToast();
     const auth = useAuth();
+    const { user } = useUser();
     const router = useRouter();
 
     const handleLogout = async () => {
@@ -100,16 +101,19 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
                 <Avatar className="h-9 w-9">
-                    <AvatarImage src={loggedInUser.avatarUrl} alt={loggedInUser.name} />
-                    <AvatarFallback>{loggedInUser.name.charAt(0)}</AvatarFallback>
+                    {user?.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || ""} />}
+                    <AvatarFallback>{user?.displayName?.charAt(0) || user?.email?.charAt(0)}</AvatarFallback>
                 </Avatar>
-                <p className="font-semibold">{loggedInUser.name}</p>
+                <p className="font-semibold">{user?.displayName || user?.email}</p>
             </div>
             <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon"><Settings className="h-5 w-5"/></Button>
-                
-                  <Button variant="ghost" size="icon" onClick={handleLogout}><LogOut className="h-5 w-5"/></Button>
-                
+                <Link href="/profile" passHref>
+                  <Button variant="ghost" size="icon" asChild>
+                    <a><UserIcon className="h-5 w-5"/></a>
+                  </Button>
+                </Link>
+                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature in development" })}><Settings className="h-5 w-5"/></Button>
+                <Button variant="ghost" size="icon" onClick={handleLogout}><LogOut className="h-5 w-5"/></Button>
             </div>
         </div>
       </SidebarFooter>
