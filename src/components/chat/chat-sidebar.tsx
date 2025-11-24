@@ -107,11 +107,11 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
                 <p className="font-semibold">{user?.displayName || user?.email}</p>
             </div>
             <div className="flex items-center gap-1">
-                <Link href="/profile" passHref legacyBehavior>
-                  <Button asChild variant="ghost" size="icon">
-                    <a><UserIcon className="h-5 w-5"/></a>
-                  </Button>
-                </Link>
+                <Button asChild variant="ghost" size="icon">
+                  <Link href="/profile">
+                    <UserIcon className="h-5 w-5"/>
+                  </Link>
+                </Button>
                 <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature in development" })}><Settings className="h-5 w-5"/></Button>
                 <Button variant="ghost" size="icon" onClick={handleLogout}><LogOut className="h-5 w-5"/></Button>
             </div>
