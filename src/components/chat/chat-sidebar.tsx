@@ -99,12 +99,12 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
       </SidebarContent>
       <SidebarFooter className="p-4 mt-auto border-t">
         <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 overflow-hidden">
                 <Avatar className="h-9 w-9">
                     {user?.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || ""} />}
                     <AvatarFallback>{user?.displayName?.charAt(0) || user?.email?.charAt(0)}</AvatarFallback>
                 </Avatar>
-                <p className="font-semibold">{user?.displayName || user?.email}</p>
+                <p className="font-semibold truncate">{user?.displayName || user?.email}</p>
             </div>
             <div className="flex items-center gap-1">
                 <Button asChild variant="ghost" size="icon">

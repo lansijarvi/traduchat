@@ -76,9 +76,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           <AvatarFallback>{sender.name.charAt(0)}</AvatarFallback>
         </Avatar>
       )}
-      <div className={cn('flex flex-col max-w-sm', isMyMessage ? 'items-end' : 'items-start')}>
+      <div className={cn('flex flex-col max-w-[75%]', isMyMessage ? 'items-end' : 'items-start')}>
         <div className={cn(
-          'relative rounded-2xl p-3 text-sm shadow-md',
+          'relative rounded-2xl p-3 text-sm shadow-md break-words',
           isMyMessage
             ? 'bg-primary text-primary-foreground rounded-br-none'
             : 'bg-card text-card-foreground rounded-bl-none'
