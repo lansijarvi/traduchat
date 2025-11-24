@@ -1,0 +1,17 @@
+Find this code in src/components/chat/chat-sidebar.tsx:
+
+            await signOut(auth);
+            toast({
+                title: "Logged Out",
+                description: "You have been signed out successfully.",
+            });
+            router.push('/login');
+
+Replace with:
+
+            await signOut(auth);
+            toast({
+                title: "Logged Out",
+                description: "You have been signed out successfully.",
+            });
+            window.location.href = '/login';

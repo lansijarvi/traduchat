@@ -62,7 +62,7 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
                 title: "Logged Out",
                 description: "You have been signed out successfully.",
             });
-            router.push('/login');
+            window.location.href = '/login';
         } catch (error: any) {
             toast({
                 variant: "destructive",
