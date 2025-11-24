@@ -1,7 +1,23 @@
-# Settings to manage and configure a Firebase App Hosting backend.
-# https://firebase.google.com/docs/app-hosting/configure
-
 runConfig:
-  # Increase this value if you'd like to automatically spin up
-  # more instances in response to increased traffic.
-  maxInstances: 1
+  minInstances: 0
+  maxInstances: 4
+  cpu: 1
+  memoryMiB: 512
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyAn110Yl4-k7pXpRuiJ0KD9W1GluJjk52Q
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: studio-1352566969-d9907.firebaseapp.com
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: studio-1352566969-d9907
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: studio-1352566969-d9907.firebasestorage.app
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "688606062258"
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:688606062258:web:267ff4d7ff606813950bab
+  - variable: GEMINI_API_KEY
+    value: AIzaSyDHJon2afJk5MHLjc2zqOObvYHwRe7zT9U
+    availability:
+      - BUILD
+      - RUNTIME
