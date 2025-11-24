@@ -107,8 +107,8 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
                 <p className="font-semibold">{user?.displayName || user?.email}</p>
             </div>
             <div className="flex items-center gap-1">
-                <Link href="/profile" passHref>
-                  <Button variant="ghost" size="icon" asChild>
+                <Link href="/profile" passHref legacyBehavior>
+                  <Button asChild variant="ghost" size="icon">
                     <a><UserIcon className="h-5 w-5"/></a>
                   </Button>
                 </Link>
