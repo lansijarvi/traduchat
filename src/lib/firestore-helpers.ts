@@ -63,6 +63,7 @@ export async function getPendingFriendRequests(db: Firestore, userId: string): P
 }
 
 // Accept friend request and create conversation
+// Accept friend request and create conversation
 export async function acceptFriendRequest(db: Firestore, friendshipId: string, currentUserId: string): Promise<string> {
   // Update friendship status
   const friendshipRef = doc(db, 'friendships', friendshipId);
@@ -70,54 +71,27 @@ export async function acceptFriendRequest(db: Firestore, friendshipId: string, c
     status: 'accepted',
     acceptedAt: serverTimestamp(),
   });
-
+  
   // Get friendship data to find the other user
   const friendshipDoc = await getDoc(friendshipRef);
   const friendshipData = friendshipDoc.data();
   
   if (!friendshipData) throw new Error('Friendship not found');
-
-  const otherUserId = friendshipData.user1Id === currentUserId ? friendshipData.user2Id : friendshipData.user1Id;
-
-  // Get both users' data
-  const [currentUserDoc, otherUserDoc] = await Promise.all([
-    getDoc(doc(db, 'users', currentUserId)),
-    getDoc(doc(db, 'users', otherUserId))
-  ]);
-
-  if (!currentUserDoc.exists() || !otherUserDoc.exists()) {
-    throw new Error('User not found');
-  }
-
-  const currentUser = currentUserDoc.data();
-  const otherUser = otherUserDoc.data();
-
-  // Create conversation
+  
+  const otherUserId = friendshipData.fromUserId === currentUserId 
+    ? friendshipData.toUserId 
+    : friendshipData.fromUserId;
+  
+  // Create conversation with simple structure
   const conversationId = `${[currentUserId, otherUserId].sort().join('_')}`;
   await setDoc(doc(db, 'conversations', conversationId), {
     participants: [currentUserId, otherUserId],
-    participantDetails: {
-      [currentUserId]: {
-        username: currentUser.username,
-        displayName: currentUser.displayName,
-        avatarUrl: currentUser.avatarUrl || null,
-      },
-      [otherUserId]: {
-        username: otherUser.username,
-        displayName: otherUser.displayName,
-        avatarUrl: otherUser.avatarUrl || null,
-      },
-    },
-    lastMessage: '',
-    lastMessageTimestamp: serverTimestamp(),
     createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    lastMessageAt: serverTimestamp(),
   });
-
+  
   return conversationId;
 }
-
-// Get all friends for a user
 export async function getFriends(db: Firestore, userId: string): Promise<UserProfile[]> {
   const friendshipsRef = collection(db, 'friendships');
   

@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, getDoc, addDoc, doc, setDoc, serverTimestamp, Timestamp, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, addDoc, doc, setDoc, updateDoc, serverTimestamp, Timestamp, orderBy, onSnapshot } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 
 export interface Conversation {
@@ -145,4 +145,34 @@ export async function getConversationById(db: Firestore, conversationId: string)
     console.error("Error getting conversation:", error);
     throw error;
   }
+}
+
+// Accept friend request and create conversation
+export async function acceptFriendRequest(db: Firestore, friendshipId: string, currentUserId: string): Promise<string> {
+  // Update friendship status
+  const friendshipRef = doc(db, 'friendships', friendshipId);
+  await updateDoc(friendshipRef, {
+    status: 'accepted',
+    acceptedAt: serverTimestamp(),
+  });
+  
+  // Get friendship data to find the other user
+  const friendshipDoc = await getDoc(friendshipRef);
+  const friendshipData = friendshipDoc.data();
+  
+  if (!friendshipData) throw new Error('Friendship not found');
+  
+  const otherUserId = friendshipData.fromUserId === currentUserId 
+    ? friendshipData.toUserId 
+    : friendshipData.fromUserId;
+  
+  // Create conversation with simple structure
+  const conversationId = `${[currentUserId, otherUserId].sort().join('_')}`;
+  await setDoc(doc(db, 'conversations', conversationId), {
+    participants: [currentUserId, otherUserId],
+    createdAt: serverTimestamp(),
+    lastMessageAt: serverTimestamp(),
+  });
+  
+  return conversationId;
 }
