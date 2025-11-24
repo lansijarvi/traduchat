@@ -17,6 +17,9 @@ import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 interface ChatSidebarProps {
   onChatSelect: (chatId: string) => void;
@@ -25,12 +28,25 @@ interface ChatSidebarProps {
 
 export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) {
     const { toast } = useToast();
+    const auth = useAuth();
+    const router = useRouter();
 
-    const handleLogout = () => {
-        toast({
-            title: "Logged Out (Mock)",
-            description: "You have been signed out.",
-        });
+    const handleLogout = async () => {
+      if (!auth) return;
+        try {
+            await signOut(auth);
+            toast({
+                title: "Logged Out",
+                description: "You have been signed out successfully.",
+            });
+            router.push('/login');
+        } catch (error: any) {
+            toast({
+                variant: "destructive",
+                title: "Logout Error",
+                description: error.message || "Could not log out.",
+            });
+        }
     }
 
   return (
@@ -91,9 +107,9 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
             </div>
             <div className="flex items-center gap-1">
                 <Button variant="ghost" size="icon"><Settings className="h-5 w-5"/></Button>
-                <Link href="/login">
+                
                   <Button variant="ghost" size="icon" onClick={handleLogout}><LogOut className="h-5 w-5"/></Button>
-                </Link>
+                
             </div>
         </div>
       </SidebarFooter>

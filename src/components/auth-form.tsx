@@ -18,6 +18,13 @@ import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from "firebase/auth";
+import { useAuth } from "@/firebase";
 
 
 const GoogleIcon = () => (
@@ -42,6 +49,7 @@ const signupSchema = loginSchema.extend({
 export function AuthForm({ type }: { type: "login" | "signup" }) {
   const { toast } = useToast();
   const router = useRouter();
+  const auth = useAuth();
   const isLogin = type === "login";
 
   const currentSchema = isLogin ? loginSchema : signupSchema;
@@ -55,21 +63,45 @@ export function AuthForm({ type }: { type: "login" | "signup" }) {
     },
   });
 
-  function onSubmit(values: z.infer<typeof currentSchema>) {
-    console.log(values);
-    toast({
-        title: `Signed ${isLogin ? 'in' : 'up'} successfully (Mock)`,
+  async function onSubmit(values: z.infer<typeof currentSchema>) {
+    if (!auth) return;
+    try {
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, values.email, values.password);
+      } else if ('username' in values) {
+        await createUserWithEmailAndPassword(auth, values.email, values.password);
+      }
+      toast({
+        title: `Signed ${isLogin ? 'in' : 'up'} successfully`,
         description: "Redirecting to the app...",
-    })
-    router.push('/');
+      });
+      router.push('/');
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: `Authentication Error`,
+        description: error.message || `Could not sign ${isLogin ? 'in' : 'up'}.`,
+      });
+    }
   }
 
-  function onGoogleAuth() {
-    toast({
-        title: "Signing in with Google (Mock)",
+  async function onGoogleAuth() {
+    if (!auth) return;
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      toast({
+        title: "Signed in with Google successfully",
         description: "Redirecting to the app...",
-    })
-    router.push('/');
+      });
+      router.push('/');
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Google Sign-In Error",
+        description: error.message || "Could not sign in with Google.",
+      });
+    }
   }
 
   return (
