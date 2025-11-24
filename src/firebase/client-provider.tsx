@@ -1,39 +1,42 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from 'react';
-import { initializeFirebase } from '@/firebase';
-import { FirebaseProvider } from '@/firebase/provider';
-import type { FirebaseApp } from 'firebase/app';
-import type { Auth } from 'firebase/auth';
-import type { Firestore } from 'firebase/firestore';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
+import { firebaseConfig } from './config';
 
-interface FirebaseClientProviderProps {
-  children: React.ReactNode;
-}
+const FirebaseContext = createContext<any>(null);
 
-export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
-  const [firebase, setFirebase] = useState<{
-    app: FirebaseApp;
-    auth: Auth;
-    db: Firestore;
-  } | null>(null);
+export function FirebaseClientProvider({ children }: { children: React.ReactNode }) {
+  const [firebaseApp, setFirebaseApp] = useState<any>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    const init = async () => {
-      const firebaseInstances = await initializeFirebase();
-      setFirebase(firebaseInstances);
-    };
-
-    init();
+    // Only initialize on client side
+    if (typeof window !== 'undefined') {
+      const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+      const storage = getStorage(app);
+      
+      setFirebaseApp({ app, auth, db, storage });
+      setIsInitialized(true);
+    }
   }, []);
 
-  if (!firebase) {
-    return <div>Loading Firebase...</div>;
+  if (!isInitialized) {
+    return <div>Loading...</div>;
   }
 
   return (
-    <FirebaseProvider app={firebase.app} auth={firebase.auth} db={firebase.db}>
+    <FirebaseContext.Provider value={firebaseApp}>
       {children}
-    </FirebaseProvider>
+    </FirebaseContext.Provider>
   );
+}
+
+export function useFirebaseClient() {
+  return useContext(FirebaseContext);
 }
