@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, addDoc, doc, setDoc, serverTimestamp, Timestamp, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, addDoc, doc, setDoc, serverTimestamp, Timestamp, orderBy, onSnapshot } from "firebase/firestore";
 import type { Firestore } from 'firebase/firestore';
 
 export interface Conversation {
@@ -135,4 +135,47 @@ export function listenToMessages(
   });
   
   return unsubscribe;
+}
+
+export async function getConversationById(
+  db: Firestore,
+  conversationId: string
+): Promise<Conversation | null> {
+  try {
+    const conversationRef = doc(db, "conversations", conversationId);
+    const conversationSnap = await getDoc(conversationRef);
+    
+    if (!conversationSnap.exists()) {
+      return null;
+    }
+    
+    const data = conversationSnap.data();
+    
+    // Fetch participant details
+    const participantPromises = data.participants.map(async (uid: string) => {
+      const userDoc = await getDoc(doc(db, "users", uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        return {
+          uid,
+          username: userData.username,
+          displayName: userData.displayName,
+          avatarUrl: userData.avatarUrl,
+        };
+      }
+      return null;
+    });
+    
+    const participants = (await Promise.all(participantPromises)).filter(Boolean);
+    
+    return {
+      id: conversationSnap.id,
+      participants,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      lastMessageAt: data.lastMessageAt?.toDate() || new Date(),
+    };
+  } catch (error) {
+    console.error("Error getting conversation:", error);
+    throw error;
+  }
 }
