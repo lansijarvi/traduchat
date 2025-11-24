@@ -12,7 +12,7 @@ export default function SignupPage() {
           <h1 className="text-3xl font-bold text-foreground">Create an account</h1>
           <p className="mt-2 text-muted-foreground">Start your translated conversations.</p>
         </div>
-        <AuthForm type="signup" />
+        <AuthForm mode="signup" />
       </div>
     </div>
   );
