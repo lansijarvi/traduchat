@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Search, UserPlus } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
-import { searchUsers, sendFriendRequest, type UserProfile } from '@/lib/firestore-helpers';
+import { searchUsersByUsername as searchUsers, sendFriendRequest, type UserProfile } from '@/lib/firestore-helpers';
 import { useToast } from '@/hooks/use-toast';
 
 export function UserSearch() {
