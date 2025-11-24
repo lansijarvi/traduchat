@@ -52,7 +52,7 @@ export function FriendRequests() {
     if (!db) return;
     
     try {
-      await acceptFriendRequest(db, friendshipId);
+      await acceptFriendRequest(db, friendshipId, user.uid);
       setRequests(requests.filter(r => r.id !== friendshipId));
       toast({
         title: 'Friend request accepted!',
