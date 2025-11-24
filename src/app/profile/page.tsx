@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser, useFirestore } from "@/firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -64,8 +64,15 @@ export default function ProfilePage() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           form.reset({
-            username: data.username,
+            username: data.username || "",
             language: data.language || "en",
+          });
+        } else {
+          // Document doesn't exist - set defaults from user
+          const defaultUsername = user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9_.]/g, '') || 'user';
+          form.reset({
+            username: defaultUsername,
+            language: "en",
           });
         }
         setProfileLoading(false);
@@ -77,15 +84,32 @@ export default function ProfilePage() {
     if (!user || !db) return;
     try {
       const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, {
-        username: values.username,
-        language: values.language,
-      });
+      const docSnap = await getDoc(userRef);
+      
+      if (docSnap.exists()) {
+        // Update existing document
+        await updateDoc(userRef, {
+          username: values.username.toLowerCase(),
+          language: values.language,
+        });
+      } else {
+        // Create new document
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email,
+          username: values.username.toLowerCase(),
+          displayName: values.username,
+          language: values.language,
+          createdAt: serverTimestamp(),
+        });
+      }
+      
       toast({
         title: "Profile Updated",
         description: "Your profile has been successfully updated.",
       });
     } catch (error: any) {
+      console.error("Profile update error:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -154,7 +178,7 @@ export default function ProfilePage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Preferred Language</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a language" />

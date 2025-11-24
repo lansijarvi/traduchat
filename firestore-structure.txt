@@ -1,0 +1,37 @@
+Firestore Collections:
+
+users/
+  {userId}/
+    - uid
+    - email
+    - username (unique, lowercase)
+    - displayName
+    - avatarUrl
+    - language ('en' | 'es')
+    - createdAt
+
+friendships/
+  {friendshipId}/
+    - user1Id
+    - user2Id
+    - status ('pending' | 'accepted')
+    - requestedBy
+    - createdAt
+    - acceptedAt
+
+conversations/
+  {conversationId}/
+    - participants: [userId1, userId2]
+    - participantDetails: {userId: {username, avatarUrl}}
+    - lastMessage
+    - lastMessageTimestamp
+    - createdAt
+    - updatedAt
+    
+    messages (subcollection)/
+      {messageId}/
+        - text
+        - senderId
+        - senderLanguage
+        - timestamp
+        - read

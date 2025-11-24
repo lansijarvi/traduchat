@@ -25,9 +25,10 @@ import {
   signInWithPopup,
   updateProfile,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth, useFirestore } from "@/firebase";
-
+import { isUsernameAvailable } from "@/lib/username-helpers";
+import { useState } from "react";
 
 const GoogleIcon = () => (
     <svg viewBox="0 0 48 48" className="h-5 w-5">
@@ -47,13 +48,13 @@ const signupSchema = loginSchema.extend({
     username: z.string().min(3, {message: "Username must be at least 3 characters."}).regex(/^[a-z0-9_.]+$/, {message: "Username can only contain lowercase letters, numbers, underscores, and periods."})
 });
 
-
 export function AuthForm({ type }: { type: "login" | "signup" }) {
   const { toast } = useToast();
   const router = useRouter();
   const auth = useAuth();
   const db = useFirestore();
   const isLogin = type === "login";
+  const [checking, setChecking] = useState(false);
 
   const currentSchema = isLogin ? loginSchema : signupSchema;
 
@@ -68,28 +69,49 @@ export function AuthForm({ type }: { type: "login" | "signup" }) {
 
   async function onSubmit(values: z.infer<typeof currentSchema>) {
     if (!auth || !db) return;
+    
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, values.email, values.password);
       } else if ('username' in values) {
+        setChecking(true);
+        
+        // Check username availability
+        const available = await isUsernameAvailable(db, values.username);
+        if (!available) {
+          toast({
+            variant: "destructive",
+            title: "Username taken",
+            description: "Please choose a different username.",
+          });
+          setChecking(false);
+          return;
+        }
+        
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const user = userCredential.user;
         await updateProfile(user, { displayName: values.username });
+        
         const userRef = doc(db, "users", user.uid);
         await setDoc(userRef, {
             uid: user.uid,
             email: user.email,
-            username: values.username,
+            username: values.username.toLowerCase(),
             displayName: values.username,
             language: 'en',
+            createdAt: serverTimestamp(),
         });
+        
+        setChecking(false);
       }
+      
       toast({
         title: `Signed ${isLogin ? 'in' : 'up'} successfully`,
         description: "Redirecting to the app...",
       });
       router.push('/');
     } catch (error: any) {
+      setChecking(false);
       toast({
         variant: "destructive",
         title: `Authentication Error`,
@@ -109,14 +131,25 @@ export function AuthForm({ type }: { type: "login" | "signup" }) {
       const userDoc = await getDoc(userRef);
 
       if (!userDoc.exists()) {
-        const username = user.email?.split('@')[0] || `user_${Date.now()}`;
+        let username = user.email?.split('@')[0]?.toLowerCase() || '';
+        username = username.replace(/[^a-z0-9_.]/g, '');
+        
+        // Ensure unique username
+        let finalUsername = username;
+        let counter = 1;
+        while (!(await isUsernameAvailable(db, finalUsername))) {
+          finalUsername = `${username}${counter}`;
+          counter++;
+        }
+        
         await setDoc(userRef, {
             uid: user.uid,
             email: user.email,
-            username: username,
-            displayName: user.displayName || username,
+            username: finalUsername,
+            displayName: user.displayName || finalUsername,
             avatarUrl: user.photoURL,
             language: 'en',
+            createdAt: serverTimestamp(),
         });
       }
 
@@ -180,8 +213,8 @@ export function AuthForm({ type }: { type: "login" | "signup" }) {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-              {isLogin ? "Sign In" : "Create Account"}
+            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={checking}>
+              {checking ? "Checking..." : (isLogin ? "Sign In" : "Create Account")}
             </Button>
           </form>
         </Form>

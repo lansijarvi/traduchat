@@ -5,6 +5,21 @@ export type User = {
     avatarUrl: string;
 };
 
+export type Attachment = {
+    type: 'image' | 'video' | 'file';
+    url: string;
+    name: string;
+    size: number;
+};
+
+export type LinkPreview = {
+    url: string;
+    title?: string;
+    description?: string;
+    image?: string;
+    siteName?: string;
+};
+
 export type Message = {
     id: string;
     text: string;
@@ -12,6 +27,8 @@ export type Message = {
     senderId: string;
     timestamp: Date;
     lang: 'en' | 'es';
+    attachments?: Attachment[];
+    linkPreview?: LinkPreview;
 };
 
 export type Chat = {
