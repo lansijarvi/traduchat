@@ -1,140 +1,170 @@
-import { collection, query, where, getDocs, getDoc, addDoc, doc, setDoc, serverTimestamp, Timestamp, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, where, getDocs, getDoc, addDoc, doc, setDoc, serverTimestamp, Timestamp, orderBy, onSnapshot } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 
 export interface Conversation {
   id: string;
-  participants: string[];
-  participantDetails: Record<string, { username: string; avatarUrl?: string; displayName: string }>;
-  lastMessage: string;
-  lastMessageTimestamp: Timestamp;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  participants: any[];
+  createdAt: Date;
+  lastMessageAt: Date;
+}
+
+export interface ConversationData {
+  id: string;
+  otherUser: {
+    uid: string;
+    username: string;
+    displayName: string;
+    avatarUrl?: string;
+  };
+  lastMessage?: string;
+  lastMessageAt: Date;
 }
 
 export interface Message {
   id: string;
-  text: string;
+  conversationId: string;
   senderId: string;
-  senderLanguage: 'en' | 'es';
-  timestamp: Timestamp;
-  read: boolean;
+  content: string;
+  timestamp: Date;
+  senderName?: string;
+  senderAvatar?: string;
 }
 
-// Create or get existing conversation between two users
 export async function getOrCreateConversation(
   db: Firestore,
-  user1Id: string,
-  user2Id: string,
-  user1Details: { username: string; avatarUrl?: string; displayName: string },
-  user2Details: { username: string; avatarUrl?: string; displayName: string }
+  userId1: string,
+  userId2: string
 ): Promise<string> {
-  // Check if conversation already exists
   const conversationsRef = collection(db, 'conversations');
+  
   const q = query(
     conversationsRef,
-    where('participants', 'array-contains', user1Id)
+    where('participants', 'array-contains', userId1)
   );
   
   const snapshot = await getDocs(q);
   const existing = snapshot.docs.find(doc => {
     const data = doc.data();
-    return data.participants.includes(user2Id);
+    return data.participants.includes(userId2);
   });
   
   if (existing) {
     return existing.id;
   }
   
-  // Create new conversation
-  const docRef = await addDoc(conversationsRef, {
-    participants: [user1Id, user2Id],
-    participantDetails: {
-      [user1Id]: user1Details,
-      [user2Id]: user2Details,
-    },
-    lastMessage: '',
-    lastMessageTimestamp: serverTimestamp(),
+  const newConversation = await addDoc(conversationsRef, {
+    participants: [userId1, userId2],
     createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    lastMessageAt: serverTimestamp(),
   });
   
-  return docRef.id;
+  return newConversation.id;
 }
 
-// Get all conversations for a user
-export async function getUserConversations(db: Firestore, userId: string): Promise<Conversation[]> {
+export async function getUserConversations(db: Firestore, userId: string): Promise<ConversationData[]> {
   const conversationsRef = collection(db, 'conversations');
   const q = query(
     conversationsRef,
-    where('participants', 'array-contains', userId),
-    orderBy('lastMessageTimestamp', 'desc')
+    where('participants', 'array-contains', userId)
   );
   
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-  } as Conversation));
+  const conversations: ConversationData[] = [];
+  
+  for (const convDoc of snapshot.docs) {
+    const data = convDoc.data();
+    const otherUserId = data.participants.find((id: string) => id !== userId);
+    
+    if (!otherUserId) continue;
+    
+    const userDoc = await getDoc(doc(db, 'users', otherUserId));
+    if (!userDoc.exists()) continue;
+    
+    const userData = userDoc.data();
+    conversations.push({
+      id: convDoc.id,
+      otherUser: {
+        uid: otherUserId,
+        username: userData.username,
+        displayName: userData.displayName,
+        avatarUrl: userData.avatarUrl,
+      },
+      lastMessage: data.lastMessage,
+      lastMessageAt: data.lastMessageAt?.toDate() || data.createdAt?.toDate() || new Date(),
+    });
+  }
+  
+  return conversations.sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
 }
 
-// Send a message
 export async function sendMessage(
   db: Firestore,
   conversationId: string,
   senderId: string,
-  text: string,
-  senderLanguage: 'en' | 'es'
-): Promise<string> {
-  const messagesRef = collection(db, 'conversations', conversationId, 'messages');
-  const messageDoc = await addDoc(messagesRef, {
-    text,
+  content: string
+): Promise<void> {
+  const messagesRef = collection(db, 'messages');
+  
+  await addDoc(messagesRef, {
+    conversationId,
     senderId,
-    senderLanguage,
+    content,
     timestamp: serverTimestamp(),
-    read: false,
   });
   
-  // Update conversation's last message
   const conversationRef = doc(db, 'conversations', conversationId);
   await setDoc(conversationRef, {
-    lastMessage: text,
-    lastMessageTimestamp: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    lastMessage: content,
+    lastMessageAt: serverTimestamp(),
   }, { merge: true });
-  
-  return messageDoc.id;
 }
 
-// Get messages for a conversation
 export async function getMessages(db: Firestore, conversationId: string): Promise<Message[]> {
-  const messagesRef = collection(db, 'conversations', conversationId, 'messages');
-  const q = query(messagesRef, orderBy('timestamp', 'asc'));
+  const messagesRef = collection(db, 'messages');
+  const q = query(
+    messagesRef,
+    where('conversationId', '==', conversationId),
+    orderBy('timestamp', 'asc')
+  );
   
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-  } as Message));
+  return snapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      conversationId: data.conversationId,
+      senderId: data.senderId,
+      content: data.content,
+      timestamp: data.timestamp?.toDate() || new Date(),
+    };
+  });
 }
 
-// Listen to messages in real-time
 export function listenToMessages(
   db: Firestore,
   conversationId: string,
   callback: (messages: Message[]) => void
 ): () => void {
-  const messagesRef = collection(db, 'conversations', conversationId, 'messages');
-  const q = query(messagesRef, orderBy('timestamp', 'asc'));
+  const messagesRef = collection(db, 'messages');
+  const q = query(
+    messagesRef,
+    where('conversationId', '==', conversationId),
+    orderBy('timestamp', 'asc')
+  );
   
-  const unsubscribe = onSnapshot(q, (snapshot) => {
-    const messages = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    } as Message));
+  return onSnapshot(q, (snapshot) => {
+    const messages = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        conversationId: data.conversationId,
+        senderId: data.senderId,
+        content: data.content,
+        timestamp: data.timestamp?.toDate() || new Date(),
+      };
+    });
     callback(messages);
   });
-  
-  return unsubscribe;
 }
 
 export async function getConversationById(
@@ -151,7 +181,6 @@ export async function getConversationById(
     
     const data = conversationSnap.data();
     
-    // Fetch participant details
     const participantPromises = data.participants.map(async (uid: string) => {
       const userDoc = await getDoc(doc(db, "users", uid));
       if (userDoc.exists()) {
