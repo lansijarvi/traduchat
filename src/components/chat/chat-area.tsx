@@ -13,7 +13,6 @@ import {
 } from "@/lib/conversation-helpers";
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { AI_FRIEND_ID } from "@/lib/ai-friend";
 
 interface ChatAreaProps {
   chatId: string | null;
@@ -42,14 +41,6 @@ export function ChatArea({ chatId }: ChatAreaProps) {
             return;
         }
 
-        if (chatId === 'ai_chat') {
-            setConversation({
-                name: 'Lingua',
-                avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=lingua&backgroundColor=b6e3f4'
-            })
-            return;
-        }
-
         const otherUserId = conv.participants.find(p => p !== user?.uid);
         const otherUserDetails = conv.participantDetails[otherUserId];
 
@@ -74,20 +65,6 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   useEffect(() => {
     if (!db || !chatId) {
       setMessages([]);
-      return;
-    }
-    
-    // Special handling for AI chat mock messages
-    if (chatId === 'ai_chat') {
-      setMessages([
-        { 
-          id: 'ai_welcome', 
-          senderId: AI_FRIEND_ID, 
-          content: '¡Hola! I\'m Lingua 👋 Ready to practice Spanish? Just start chatting!', 
-          timestamp: new Date(),
-          senderName: 'Lingua'
-        },
-      ]);
       return;
     }
 

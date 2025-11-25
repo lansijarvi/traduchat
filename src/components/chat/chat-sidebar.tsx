@@ -19,7 +19,6 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { AI_CONVERSATION_ID, linguaAI } from '@/lib/ai-friend';
 
 interface ChatSidebarProps {
   onChatSelect: (chatId: string) => void;
@@ -65,21 +64,7 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
         }
     }
 
-    const aiChat = {
-      id: AI_CONVERSATION_ID,
-      otherUser: {
-        uid: linguaAI.id,
-        displayName: linguaAI.name,
-        username: linguaAI.username,
-        avatarUrl: linguaAI.avatarUrl,
-      },
-      lastMessage: 'Ready to practice your Spanish?',
-      lastMessageAt: new Date(Date.now() - 1000 * 60 * 60)
-    };
-
-    const allChats = [
-      aiChat,
-      ...conversations.map(conv => {
+    const allChats = conversations.map(conv => {
         const otherUserId = conv.participants.find(p => p !== user?.uid);
         const otherUserDetails = otherUserId ? conv.participantDetails[otherUserId] : null;
         return {
@@ -93,8 +78,7 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
           lastMessage: conv.lastMessage || 'Start chatting!',
           lastMessageAt: conv.lastMessageTimestamp,
         }
-      })
-    ];
+      });
 
   return (
     <>

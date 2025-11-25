@@ -45,14 +45,6 @@ export async function getConversationById(db: Firestore, conversationId: string)
     const conversationSnap = await getDoc(conversationRef);
 
     if (!conversationSnap.exists()) {
-        // Special handling for AI chat
-        if (conversationId === 'ai_chat') {
-            return {
-                id: 'ai_chat',
-                name: 'Lingua',
-                avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=lingua&backgroundColor=b6e3f4'
-            };
-        }
         return null;
     }
     const data = conversationSnap.data();
@@ -128,10 +120,7 @@ export async function sendMessage(
   }
 
   const conversation = conversationSnap.data();
-  if (!conversation.participants) {
-    throw new Error('Conversation is missing participants');
-  }
-  const receiverId = conversation.participants.find((id: string) => id !== senderId);
+  const receiverId = conversation.participants?.find((id: string) => id !== senderId);
   
   let translatedText: string | undefined;
   

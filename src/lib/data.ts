@@ -1,6 +1,5 @@
 import type { User, Chat } from './types';
 import { PlaceHolderImages } from './placeholder-images';
-import { linguaAI, AI_CONVERSATION_ID } from './ai-friend';
 
 const getImage = (id: string) => PlaceHolderImages.find(img => img.id === id)?.imageUrl || '';
 
@@ -13,7 +12,6 @@ export const loggedInUser: User = {
 
 export const users: User[] = [
   loggedInUser,
-  linguaAI,
   { id: 'user2', name: 'Mia', avatarUrl: getImage('mia-avatar'), username: 'mia' },
   { id: 'user3', name: 'Carlos', avatarUrl: getImage('carlos-avatar'), username: 'carlos' },
   { id: 'user4', name: 'Sofia', avatarUrl: getImage('sofia-avatar'), username: 'sofia' },
@@ -21,18 +19,8 @@ export const users: User[] = [
 
 export const chats: Chat[] = [
   {
-    id: AI_CONVERSATION_ID,
-    participants: [loggedInUser, linguaAI],
-    messages: [
-      { id: 'ai_welcome', text: '¡Hola! I\'m Lingua 👋 Ready to practice Spanish? Just start chatting!', senderId: linguaAI.id, timestamp: new Date(Date.now() - 1000 * 60 * 60), lang: 'es' },
-    ],
-    lastMessage: '¡Hola! I\'m Lingua 👋 Ready to practice?',
-    lastMessageTimestamp: new Date(Date.now() - 1000 * 60 * 60),
-    unreadCount: 0,
-  },
-  {
     id: '1',
-    participants: [users[0], users[2]],
+    participants: [users[0], users[1]],
     messages: [
       { id: 'msg1', text: 'Hey Mia, how are you?', senderId: 'user1', timestamp: new Date(Date.now() - 1000 * 60 * 5), lang: 'en' },
       { id: 'msg2', text: 'Hola Alex! Estoy bien, y tu?', senderId: 'user2', timestamp: new Date(Date.now() - 1000 * 60 * 4), lang: 'es' },
@@ -45,7 +33,7 @@ export const chats: Chat[] = [
   },
   {
     id: '2',
-    participants: [users[0], users[3]],
+    participants: [users[0], users[2]],
     messages: [
       { id: 'msg5', text: 'Hi Carlos, are you free for a call tomorrow?', senderId: 'user1', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), lang: 'en' },
       { id: 'msg6', text: 'Sí, por la tarde estoy libre. ¿A qué hora?', senderId: 'user3', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 23), lang: 'es' },
@@ -56,7 +44,7 @@ export const chats: Chat[] = [
   },
   {
     id: '3',
-    participants: [users[0], users[4]],
+    participants: [users[0], users[3]],
     messages: [],
     lastMessage: 'Say hi!',
     lastMessageTimestamp: new Date(Date.now() - 1000 * 60 * 60 * 72),

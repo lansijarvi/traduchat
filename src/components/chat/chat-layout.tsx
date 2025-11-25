@@ -7,10 +7,9 @@ import {
 } from "@/components/ui/sidebar";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { ChatArea } from "@/components/chat/chat-area";
-import { AI_CONVERSATION_ID } from '@/lib/ai-friend';
 
 export default function ChatLayout() {
-  const [selectedChatId, setSelectedChatId] = React.useState<string | null>(AI_CONVERSATION_ID);
+  const [selectedChatId, setSelectedChatId] = React.useState<string | null>(null);
 
   return (
     <SidebarProvider defaultOpen={true}>

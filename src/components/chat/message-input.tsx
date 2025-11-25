@@ -4,17 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Paperclip, Mic, Send, X, Image as ImageIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { chatWithLingua } from '@/ai/flows/ai-chat-flow';
 import { sendMessage } from '@/lib/conversation-helpers';
 import { uploadFile, validateFile, type Attachment } from '@/lib/upload-helpers';
 import { extractUrls, fetchLinkPreview, type LinkPreview } from '@/lib/link-preview-helpers';
-import { AI_CONVERSATION_ID } from '@/lib/ai-friend';
 import { useFirestore, useUser } from '@/firebase';
 import { doc, getDoc, setDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 interface MessageInputProps {
   chatId?: string | null;
-  onMessageSent?: (userMsg: string, aiResponse?: string) => void;
+  onMessageSent?: (userMsg: string) => void;
 }
 
 export function MessageInput({ chatId, onMessageSent }: MessageInputProps) {
@@ -75,48 +73,7 @@ export function MessageInput({ chatId, onMessageSent }: MessageInputProps) {
     
     if (!messageText && attachments.length === 0) return;
     if (!chatId) return;
-
-    const isAIChat = chatId === AI_CONVERSATION_ID;
-
-    if (isAIChat) {
-      // AI Chat (no attachments for AI)
-      if (attachments.length > 0) {
-        toast({
-          variant: 'destructive',
-          title: 'Not supported',
-          description: 'Attachments not supported for AI chat',
-        });
-        return;
-      }
-
-      setIsSending(true);
-      try {
-        const result = await chatWithLingua({
-          userMessage: messageText,
-          userLanguage: 'en',
-        });
-
-        input.value = "";
-        
-        if (onMessageSent) {
-          onMessageSent(messageText, result.response);
-        }
-
-        toast({
-          title: "Message sent!",
-        });
-      } catch (error: any) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: error.message || "Could not send message.",
-        });
-      } finally {
-        setIsSending(false);
-      }
-    } else {
-      // Real chat
-      if (!db || !user) return;
+    if (!db || !user) return;
       
       setIsSending(true);
       try {
@@ -156,6 +113,10 @@ export function MessageInput({ chatId, onMessageSent }: MessageInputProps) {
         input.value = "";
         setAttachments([]);
         
+        if (onMessageSent) {
+          onMessageSent(messageText);
+        }
+        
         toast({
           title: "Message sent!",
         });
@@ -169,7 +130,6 @@ export function MessageInput({ chatId, onMessageSent }: MessageInputProps) {
       } finally {
         setIsSending(false);
       }
-    }
   };
 
   return (
