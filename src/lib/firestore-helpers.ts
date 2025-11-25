@@ -8,7 +8,9 @@ import {
   doc, 
   getDoc,
   serverTimestamp,
-  setDoc
+  setDoc,
+  deleteDoc,
+  or
 } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 
@@ -74,12 +76,60 @@ export async function getFriends(db: Firestore, userId: string): Promise<UserPro
   snapshot2.docs.forEach(doc => friendIds.add(doc.data().fromUserId));
   
   const friends: UserProfile[] = [];
-  for (const friendId of friendIds) {
-    const userDoc = await getDoc(doc(db, 'users', friendId));
-    if (userDoc.exists()) {
-      friends.push(userDoc.data() as UserProfile);
-    }
+  if (friendIds.size > 0) {
+    const usersRef = collection(db, 'users');
+    const friendsQuery = query(usersRef, where('uid', 'in', Array.from(friendIds)));
+    const friendsSnapshot = await getDocs(friendsQuery);
+    friendsSnapshot.forEach(doc => {
+      friends.push(doc.data() as UserProfile);
+    });
   }
   
   return friends;
+}
+
+export async function deleteFriend(db: Firestore, userId: string, friendId: string): Promise<void> {
+  const friendshipsRef = collection(db, 'friendships');
+  
+  // Find the friendship document
+  const q = query(
+    friendshipsRef,
+    or(
+      where('fromUserId', '==', userId),
+      where('toUserId', '==', userId)
+    ),
+    or(
+      where('fromUserId', '==', friendId),
+      where('toUserId', '==', friendId)
+    ),
+    where('status', '==', 'accepted')
+  );
+
+  const querySnapshot = await getDocs(q);
+
+  if (!querySnapshot.empty) {
+    // Should only be one, but we'll loop just in case
+    for (const docSnap of querySnapshot.docs) {
+      await deleteDoc(doc(db, 'friendships', docSnap.id));
+    }
+  } else {
+    // This case might be more complex if the friendship doc is not found as expected.
+    // Fallback queries if the compound `or` is not supported or misbehaving.
+    const q1 = query(friendshipsRef, where('fromUserId', '==', userId), where('toUserId', '==', friendId), where('status', '==', 'accepted'));
+    const q2 = query(friendshipsRef, where('toUserId', '==', userId), where('fromUserId', '==', friendId), where('status', '==', 'accepted'));
+    
+    const [snapshot1, snapshot2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+    
+    for (const docSnap of snapshot1.docs) {
+      await deleteDoc(doc(db, 'friendships', docSnap.id));
+    }
+    for (const docSnap of snapshot2.docs) {
+      await deleteDoc(doc(db, 'friendships', docSnap.id));
+    }
+  }
+
+  // Also delete the conversation
+  const conversationId = [userId, friendId].sort().join('_');
+  const conversationRef = doc(db, 'conversations', conversationId);
+  await deleteDoc(conversationRef);
 }

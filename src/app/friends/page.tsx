@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserSearch } from '@/components/user-search';
 import { FriendRequests } from '@/components/friend-requests';
+import { FriendList } from '@/components/friend-list';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useUser } from '@/firebase';
@@ -33,9 +34,10 @@ export default function FriendsPage() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="search">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="search">Search Users</TabsTrigger>
                 <TabsTrigger value="requests">Requests</TabsTrigger>
+                <TabsTrigger value="friends">Friends</TabsTrigger>
               </TabsList>
               
               <TabsContent value="search">
@@ -44,6 +46,10 @@ export default function FriendsPage() {
               
               <TabsContent value="requests">
                 <FriendRequests />
+              </TabsContent>
+              
+              <TabsContent value="friends">
+                <FriendList />
               </TabsContent>
             </Tabs>
           </CardContent>
