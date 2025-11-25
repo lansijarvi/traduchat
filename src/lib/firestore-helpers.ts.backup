@@ -33,32 +33,32 @@ export async function searchUsersByUsername(db: Firestore, searchTerm: string): 
 export async function sendFriendRequest(db: Firestore, fromUserId: string, toUserId: string): Promise<void> {
   const friendshipsRef = collection(db, 'friendships');
   await addDoc(friendshipsRef, {
-    fromUserId: fromUserId,
-    toUserId: toUserId,
+    user1Id: fromUserId,
+    user2Id: toUserId,
     status: 'pending',
+    requestedBy: fromUserId,
     createdAt: serverTimestamp(),
   });
 }
-}
+
+// Get pending friend requests for a user
 export async function getPendingFriendRequests(db: Firestore, userId: string): Promise<any[]> {
   const friendshipsRef = collection(db, 'friendships');
-  const q = query(friendshipsRef, where('toUserId', '==', userId), where('status', '==', 'pending'));
+  const q = query(friendshipsRef, where('user2Id', '==', userId), where('status', '==', 'pending'));
   const snapshot = await getDocs(q);
   
   const requests = [];
   for (const docSnap of snapshot.docs) {
     const data = docSnap.data();
-    const userDoc = await getDoc(doc(db, 'users', data.fromUserId));
+    const userDoc = await getDoc(doc(db, 'users', data.user1Id));
     if (userDoc.exists()) {
       requests.push({
         id: docSnap.id,
         ...data,
-        fromUser: userDoc.data(),
+        fromUser: userDoc.data() as UserProfile,
       });
     }
   }
-  return requests;
-}
   return requests;
 }
 
