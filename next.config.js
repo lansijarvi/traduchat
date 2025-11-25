@@ -11,6 +11,10 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Disable static optimization for auth-dependent pages
+  experimental: {
+    optimizeCss: false,
+  },
 }
 
 module.exports = nextConfig

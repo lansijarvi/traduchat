@@ -99,7 +99,7 @@ export function FriendRequests() {
             <div className="flex items-center gap-3">
               <Avatar>
                 <AvatarImage src={request.fromUser.avatarUrl} />
-                <AvatarFallback>{request.fromUser.username[0].toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{(request?.fromUser?.username?.[0]?.toUpperCase() || "U")}</AvatarFallback>
               </Avatar>
               <div>
                 <p className="font-medium">{request.fromUser.displayName}</p>

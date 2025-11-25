@@ -122,7 +122,7 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
                   >
                     <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={otherUser.avatarUrl} alt={otherUser.name} />
-                      <AvatarFallback className="text-xs">{(otherUser.name || "?")[0]}</AvatarFallback>
+                      <AvatarFallback className="text-xs">{(otherUser?.name || "?")[0]}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col items-start text-left ml-2 overflow-hidden flex-1 min-w-0">
                       <p className="font-semibold text-sm truncate w-full">{otherUser.name}</p>

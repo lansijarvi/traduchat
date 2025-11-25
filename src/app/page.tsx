@@ -1,34 +1,46 @@
 "use client";
 
-import ChatLayout from "@/components/chat/chat-layout";
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useUser } from "@/firebase";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect } from "react";
+import dynamic from 'next/dynamic';
+
+const ChatLayout = dynamic(() => import("@/components/chat/chat-layout"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-screen w-screen items-center justify-center bg-background">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  )
+});
 
 export default function Home() {
   const { user, loading } = useUser();
+  const router = useRouter();
+  
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login');
+    }
+  }, [user, loading, router]);
   
   if (loading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center">
-        <div className="flex items-center space-x-4">
-          <Skeleton className="h-12 w-12 rounded-full" />
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-[250px]" />
-            <Skeleton className="h-4 w-[200px]" />
-          </div>
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
   }
   
   if (!user) {
-    redirect('/login');
+    return null;
   }
 
-  return (
-    <main className="h-screen w-screen overflow-hidden">
-      <ChatLayout />
-    </main>
-  );
+  return <ChatLayout />;
 }

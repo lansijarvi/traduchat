@@ -75,7 +75,7 @@ export function UserSearch() {
             <div className="flex items-center gap-3">
               <Avatar>
                 <AvatarImage src={profile.avatarUrl} />
-                <AvatarFallback>{profile.username[0].toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{(profile?.username?.[0]?.toUpperCase() || "U")}</AvatarFallback>
               </Avatar>
               <div>
                 <p className="font-semibold">@{profile.username}</p>

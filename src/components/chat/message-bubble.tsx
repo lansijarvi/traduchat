@@ -73,7 +73,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       {!isMyMessage && sender && (
         <Avatar className="h-8 w-8">
           <AvatarImage src={sender.avatarUrl} alt={sender.name} />
-          <AvatarFallback>{sender.name.charAt(0)}</AvatarFallback>
+          <AvatarFallback>{(sender?.name?.[0] || "U")}</AvatarFallback>
         </Avatar>
       )}
       <div className={cn('flex flex-col max-w-[75%]', isMyMessage ? 'items-end' : 'items-start')}>
@@ -103,7 +103,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       {isMyMessage && sender && (
         <Avatar className="h-8 w-8">
           <AvatarImage src={sender.avatarUrl} alt={sender.name} />
-          <AvatarFallback>{sender.name.charAt(0)}</AvatarFallback>
+          <AvatarFallback>{(sender?.name?.[0] || "U")}</AvatarFallback>
         </Avatar>
       )}
     </div>

@@ -1,199 +1,174 @@
-import { collection, query, where, getDocs, getDoc, addDoc, doc, setDoc, updateDoc, serverTimestamp, Timestamp, orderBy, onSnapshot } from 'firebase/firestore';
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  serverTimestamp,
+  doc,
+  setDoc,
+  Timestamp,
+  getDoc
+} from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
-import { AI_CONVERSATION_ID } from '@/lib/ai-friend';
-
-export interface Conversation {
-  id: string;
-  participants: any[];
-  createdAt: Date;
-  lastMessageAt: Date;
-}
+import { translateMessage } from '@/ai/flows/real-time-translation';
 
 export interface ConversationData {
   id: string;
-  otherUser: {
-    uid: string;
+  participants: string[];
+  participantDetails: Record<string, {
     username: string;
     displayName: string;
-    avatarUrl?: string;
-  };
-  lastMessage?: string;
-  lastMessageAt: Date;
+    avatarUrl: string | null;
+  }>;
+  lastMessage: string;
+  lastMessageTimestamp: Date;
 }
 
-export interface Message {
+export interface MessageData {
   id: string;
-  conversationId: string;
+  text: string;
+  translatedText?: string;
   senderId: string;
-  content: string;
+  senderLanguage: 'en' | 'es';
   timestamp: Date;
-  senderName?: string;
-  senderAvatar?: string;
+  read: boolean;
 }
 
-export async function getOrCreateConversation(db: Firestore, userId1: string, userId2: string): Promise<string> {
-  const conversationsRef = collection(db, 'conversations');
-  const q = query(conversationsRef, where('participants', 'array-contains', userId1));
-  const snapshot = await getDocs(q);
-  const existing = snapshot.docs.find(d => d.data().participants.includes(userId2));
-  if (existing) return existing.id;
-  const newConv = await addDoc(conversationsRef, {
-    participants: [userId1, userId2],
-    createdAt: serverTimestamp(),
-    lastMessageAt: serverTimestamp()
-  });
-  return newConv.id;
-}
-
+// Get user conversations
 export async function getUserConversations(db: Firestore, userId: string): Promise<ConversationData[]> {
   const conversationsRef = collection(db, 'conversations');
-  const q = query(conversationsRef, where('participants', 'array-contains', userId));
-  const snapshot = await getDocs(q);
-  const conversations: ConversationData[] = [];
-  for (const convDoc of snapshot.docs) {
-    const data = convDoc.data();
-    const otherUserId = data.participants.find((id: string) => id !== userId);
-    if (!otherUserId) continue;
-    const userDoc = await getDoc(doc(db, 'users', otherUserId));
-    if (!userDoc.exists()) continue;
-    const userData = userDoc.data();
-    conversations.push({
-      id: convDoc.id,
-      otherUser: {
-        uid: otherUserId,
-        username: userData.username,
-        displayName: userData.displayName,
-        avatarUrl: userData.avatarUrl,
+  const q = query(
+    conversationsRef,
+    where('participants', 'array-contains', userId),
+    orderBy('lastMessageTimestamp', 'desc')
+  );
+
+  return new Promise((resolve, reject) => {
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const conversations: ConversationData[] = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          lastMessageTimestamp: doc.data().lastMessageTimestamp?.toDate() || new Date(),
+        } as ConversationData));
+        unsubscribe();
+        resolve(conversations);
       },
-      lastMessage: data.lastMessage,
-      lastMessageAt: data.lastMessageAt?.toDate() || data.createdAt?.toDate() || new Date(),
-    });
-  }
-  return conversations.sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
-}
-
-export async function sendMessage(db: Firestore, conversationId: string, senderId: string, content: string): Promise<void> {
-  const messagesRef = collection(db, 'messages');
-  await addDoc(messagesRef, {
-    conversationId,
-    senderId,
-    content,
-    timestamp: serverTimestamp(),
-  });
-  const conversationRef = doc(db, 'conversations', conversationId);
-  await setDoc(conversationRef, {
-    lastMessage: content,
-    lastMessageAt: serverTimestamp(),
-  }, { merge: true });
-}
-
-export async function getMessages(db: Firestore, conversationId: string): Promise<Message[]> {
-  const messagesRef = collection(db, 'messages');
-  const q = query(messagesRef, where('conversationId', '==', conversationId), orderBy('timestamp', 'asc'));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(d => {
-    const data = d.data();
-    return {
-      id: d.id,
-      conversationId: data.conversationId,
-      senderId: data.senderId,
-      content: data.content,
-      timestamp: data.timestamp?.toDate() || new Date(),
-    };
+      reject
+    );
   });
 }
 
-export function listenToMessages(db: Firestore, conversationId: string, callback: (messages: Message[]) => void): () => void {
-  const messagesRef = collection(db, 'messages');
-  const q = query(messagesRef, where('conversationId', '==', conversationId), orderBy('timestamp', 'asc'));
+// Listen to messages in a conversation
+export function listenToMessages(
+  db: Firestore,
+  conversationId: string,
+  callback: (messages: MessageData[]) => void
+): () => void {
+  const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+  const q = query(messagesRef, orderBy('timestamp', 'asc'));
+
   return onSnapshot(q, (snapshot) => {
-    const messages = snapshot.docs.map(d => {
-      const data = d.data();
-      return {
-        id: d.id,
-        conversationId: data.conversationId,
-        senderId: data.senderId,
-        content: data.content,
-        timestamp: data.timestamp?.toDate() || new Date(),
-      };
-    });
+    const messages: MessageData[] = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      timestamp: doc.data().timestamp?.toDate() || new Date(),
+    } as MessageData));
     callback(messages);
   });
 }
 
-export async function getConversationById(db: Firestore, conversationId: string): Promise<Conversation | null> {
-  try {
-    // Handle AI chat specially - it doesn't exist in Firestore
-    if (conversationId === AI_CONVERSATION_ID) {
-      return {
-        id: AI_CONVERSATION_ID,
-        participants: [
-          { 
-            uid: 'ai', 
-            username: 'aifriend', 
-            displayName: 'AI Friend', 
-            avatarUrl: '/ai-avatar.png' 
-          }
-        ],
-        createdAt: new Date(),
-        lastMessageAt: new Date(),
-      };
-    }
-
-    const conversationRef = doc(db, "conversations", conversationId);
-    const conversationSnap = await getDoc(conversationRef);
-    if (!conversationSnap.exists()) return null;
-    const data = conversationSnap.data();
-    
-    // Check if participants array exists
-    if (!data.participants || !Array.isArray(data.participants)) {
-      console.error("Conversation missing participants array:", conversationId, data);
-      return null;
-    }
-    
-    const participantPromises = data.participants.map(async (uid: string) => {
-      const userDoc = await getDoc(doc(db, "users", uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        return { uid, username: userData.username, displayName: userData.displayName, avatarUrl: userData.avatarUrl };
-      }
-      return null;
-    });
-    const participants = (await Promise.all(participantPromises)).filter(Boolean);
-    return {
-      id: conversationSnap.id,
-      participants,
-      createdAt: data.createdAt?.toDate() || new Date(),
-      lastMessageAt: data.lastMessageAt?.toDate() || new Date(),
-    };
-  } catch (error) {
-    console.error("Error getting conversation:", error);
-    throw error;
+// Send message with automatic translation
+export async function sendMessage(
+  db: Firestore,
+  conversationId: string,
+  senderId: string,
+  text: string,
+  senderLanguage: 'en' | 'es'
+): Promise<void> {
+  // Get conversation to find receiver's language
+  const conversationRef = doc(db, 'conversations', conversationId);
+  const conversationSnap = await getDoc(conversationRef);
+  
+  if (!conversationSnap.exists()) {
+    throw new Error('Conversation not found');
   }
+
+  const conversation = conversationSnap.data();
+  const receiverId = conversation.participants.find((id: string) => id !== senderId);
+  
+  // Get receiver's language preference
+  const receiverRef = doc(db, 'users', receiverId);
+  const receiverSnap = await getDoc(receiverRef);
+  const receiverLanguage = receiverSnap.exists() ? (receiverSnap.data().language || 'en') : 'en';
+
+  // Auto-translate if languages differ
+  let translatedText: string | undefined;
+  if (senderLanguage !== receiverLanguage) {
+    try {
+      const translation = await translateMessage({
+        text,
+        fromLang: senderLanguage,
+        toLang: receiverLanguage,
+      });
+      translatedText = translation.translatedText;
+    } catch (error) {
+      console.error('Translation failed:', error);
+    }
+  }
+
+  // Save message with translation
+  const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+  await addDoc(messagesRef, {
+    text,
+    translatedText,
+    senderId,
+    senderLanguage,
+    timestamp: serverTimestamp(),
+    read: false,
+  });
+
+  // Update conversation last message
+  await setDoc(conversationRef, {
+    lastMessage: text,
+    lastMessageTimestamp: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
 }
 
-export async function acceptFriendRequest(db: Firestore, friendshipId: string, currentUserId: string): Promise<string> {
-  const friendshipRef = doc(db, 'friendships', friendshipId);
-  await updateDoc(friendshipRef, {
-    status: 'accepted',
-    acceptedAt: serverTimestamp(),
-  });
-  
-  const friendshipDoc = await getDoc(friendshipRef);
-  const friendshipData = friendshipDoc.data();
-  
-  if (!friendshipData) throw new Error('Friendship not found');
-  
-  const otherUserId = friendshipData.fromUserId === currentUserId 
-    ? friendshipData.toUserId 
-    : friendshipData.fromUserId;
-  
-  const conversationId = `${[currentUserId, otherUserId].sort().join('_')}`;
-  await setDoc(doc(db, 'conversations', conversationId), {
-    participants: [currentUserId, otherUserId],
+// Create a new conversation
+export async function createConversation(
+  db: Firestore,
+  participant1Id: string,
+  participant2Id: string,
+  participant1Details: { username: string; displayName: string; avatarUrl?: string },
+  participant2Details: { username: string; displayName: string; avatarUrl?: string }
+): Promise<string> {
+  const conversationId = `${[participant1Id, participant2Id].sort().join('_')}`;
+  const conversationRef = doc(db, 'conversations', conversationId);
+
+  await setDoc(conversationRef, {
+    participants: [participant1Id, participant2Id],
+    participantDetails: {
+      [participant1Id]: {
+        username: participant1Details.username,
+        displayName: participant1Details.displayName,
+        avatarUrl: participant1Details.avatarUrl || null,
+      },
+      [participant2Id]: {
+        username: participant2Details.username,
+        displayName: participant2Details.displayName,
+        avatarUrl: participant2Details.avatarUrl || null,
+      },
+    },
+    lastMessage: '',
+    lastMessageTimestamp: serverTimestamp(),
     createdAt: serverTimestamp(),
-    lastMessageAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
-  
+
   return conversationId;
 }

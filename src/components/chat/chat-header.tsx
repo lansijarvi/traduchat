@@ -33,7 +33,7 @@ export function ChatHeader({ name, avatarUrl, status = 'online' }: ChatHeaderPro
         </Button>
         <Avatar className="h-8 w-8 shrink-0">
           <AvatarImage src={avatarUrl} alt={name} />
-          <AvatarFallback className="text-xs">{name.charAt(0)}</AvatarFallback>
+          <AvatarFallback className="text-xs">{(name?.[0] || "U")}</AvatarFallback>
         </Avatar>
         <div className="flex flex-col min-w-0">
           <h2 className="font-semibold text-sm truncate">{name}</h2>
