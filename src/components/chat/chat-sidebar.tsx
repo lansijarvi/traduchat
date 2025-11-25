@@ -20,7 +20,6 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
 import { AI_CONVERSATION_ID } from '@/lib/ai-friend';
 
 interface ChatSidebarProps {
@@ -33,7 +32,6 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
     const auth = useAuth();
     const { user } = useUser();
     const db = useFirestore();
-    const router = useRouter();
     const [conversations, setConversations] = useState<ConversationData[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -72,7 +70,6 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
         }
     }
 
-    // Combine AI chat with real conversations
     const aiChat = mockChats.find(c => c.id === AI_CONVERSATION_ID);
     const allChats = [
       ...(aiChat ? [aiChat] : []),
@@ -96,20 +93,23 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
 
   return (
     <>
-      <SidebarHeader className="p-4">
-        <div className="flex items-center gap-3">
-          <Globe className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-bold">TraduChat</h1>
+      <SidebarHeader className="p-3 pb-2 border-b border-sidebar-border">
+        <div className="flex items-center gap-2">
+          <Globe className="h-6 w-6 text-primary" />
+          <h1 className="text-lg font-bold">TraduChat</h1>
         </div>
-        <div className="relative mt-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search chats..." className="pl-9" />
+        <div className="relative mt-2">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input placeholder="Search..." className="pl-8 h-8 text-sm" />
         </div>
       </SidebarHeader>
+      
       <SidebarContent className="p-0">
-        <SidebarMenu className="p-4 pt-0">
+        <SidebarMenu className="p-2">
           {loading ? (
-            <div className="p-4 text-center text-muted-foreground">Loading chats...</div>
+            <div className="p-4 text-center text-sm text-muted-foreground">Loading...</div>
+          ) : allChats.length === 0 ? (
+            <div className="p-4 text-center text-sm text-muted-foreground">No chats yet</div>
           ) : (
             allChats.map(chat => {
               const otherUser = chat.participants.find(p => p.id !== loggedInUser.id);
@@ -118,22 +118,22 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
                 <SidebarMenuItem key={chat.id} onClick={() => onChatSelect(chat.id)}>
                   <SidebarMenuButton
                     isActive={selectedChatId === chat.id}
-                    className="h-auto p-3 justify-start"
+                    className="h-auto p-2 justify-start hover:bg-sidebar-accent"
                   >
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={otherUser.avatarUrl} alt={otherUser.name} />
-                      <AvatarFallback>{otherUser.name.charAt(0)}</AvatarFallback>
+                      <AvatarFallback className="text-xs">{otherUser.name.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col items-start text-left ml-2 overflow-hidden">
-                      <p className="font-semibold truncate w-full">{otherUser.name}</p>
-                      <p className="text-sm text-muted-foreground truncate w-full">{chat.lastMessage || 'Start chatting!'}</p>
+                    <div className="flex flex-col items-start text-left ml-2 overflow-hidden flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate w-full">{otherUser.name}</p>
+                      <p className="text-xs text-muted-foreground truncate w-full">{chat.lastMessage || 'Start chatting!'}</p>
                     </div>
-                    <div className="ml-auto flex flex-col items-end self-start shrink-0">
-                      <time className="text-xs text-muted-foreground whitespace-nowrap">
-                          {formatDistanceToNow(chat.lastMessageTimestamp, { addSuffix: true })}
+                    <div className="ml-2 flex flex-col items-end self-start shrink-0">
+                      <time className="text-[10px] text-muted-foreground whitespace-nowrap">
+                          {formatDistanceToNow(chat.lastMessageTimestamp, { addSuffix: false })}
                       </time>
                       {chat.unreadCount > 0 && (
-                        <span className={cn("mt-1 flex h-5 w-5 items-center justify-center rounded-full text-xs text-accent-foreground", chat.unreadCount > 0 ? "bg-accent" : "bg-transparent")}>
+                        <span className="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] text-accent-foreground font-semibold">
                           {chat.unreadCount}
                         </span>
                       )}
@@ -145,28 +145,30 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
           )}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="p-4 mt-auto border-t">
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 overflow-hidden">
-                <Avatar className="h-9 w-9">
+      
+      <SidebarFooter className="p-2 mt-auto border-t border-sidebar-border">
+        <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 overflow-hidden min-w-0">
+                <Avatar className="h-7 w-7 shrink-0">
                     {user?.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || ""} />}
-                    <AvatarFallback>{user?.displayName?.charAt(0) || user?.email?.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="text-xs">{user?.displayName?.charAt(0) || user?.email?.charAt(0)}</AvatarFallback>
                 </Avatar>
-                <p className="font-semibold truncate">{user?.displayName || user?.email}</p>
+                <p className="font-semibold text-xs truncate">{user?.displayName || user?.email}</p>
             </div>
-            <div className="flex items-center gap-1">
-                <Button asChild variant="ghost" size="icon">
+            <div className="flex items-center gap-0.5 shrink-0">
+                <Button asChild variant="ghost" size="icon" className="h-7 w-7">
                   <Link href="/profile">
-                    <UserIcon className="h-5 w-5"/>
+                    <UserIcon className="h-3.5 w-3.5"/>
                   </Link>
                 </Button>
-                <Button asChild variant="ghost" size="icon">
+                <Button asChild variant="ghost" size="icon" className="h-7 w-7">
                   <Link href="/friends">
-                    <Users className="h-5 w-5"/>
+                    <Users className="h-3.5 w-3.5"/>
                   </Link>
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => toast({ title: "Feature in development" })}><Settings className="h-5 w-5"/></Button>
-                <Button variant="ghost" size="icon" onClick={handleLogout}><LogOut className="h-5 w-5"/></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleLogout}>
+                  <LogOut className="h-3.5 w-3.5"/>
+                </Button>
             </div>
         </div>
       </SidebarFooter>
