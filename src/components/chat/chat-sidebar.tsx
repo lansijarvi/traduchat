@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Globe, LogOut, Search, Settings, User as UserIcon, Users } from 'lucide-react';
 import { chats as mockChats, loggedInUser } from '@/lib/data';
-import { getUserConversations, type Conversation } from '@/lib/conversation-helpers';
+import { getUserConversations, type ConversationData } from '@/lib/conversation-helpers';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -34,7 +34,7 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
     const { user } = useUser();
     const db = useFirestore();
     const router = useRouter();
-    const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [conversations, setConversations] = useState<ConversationData[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -76,27 +76,22 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
     const aiChat = mockChats.find(c => c.id === AI_CONVERSATION_ID);
     const allChats = [
       ...(aiChat ? [aiChat] : []),
-      ...conversations.map(conv => {
-        const otherUserId = conv.participants.find(p => p !== user?.uid);
-        const otherUserDetails = otherUserId ? conv.participantDetails[otherUserId] : null;
-        
-        return {
-          id: conv.id,
-          participants: [
-            loggedInUser,
-            {
-              id: otherUserId || '',
-              name: otherUserDetails?.displayName || 'Unknown',
-              username: otherUserDetails?.username || 'unknown',
-              avatarUrl: otherUserDetails?.avatarUrl || '',
-            }
-          ],
-          lastMessage: conv.lastMessage,
-          lastMessageTimestamp: conv.lastMessageTimestamp.toDate(),
-          unreadCount: 0,
-          messages: [],
-        };
-      })
+      ...conversations.map(conv => ({
+        id: conv.id,
+        participants: [
+          loggedInUser,
+          {
+            id: conv.otherUser.uid,
+            name: conv.otherUser.displayName,
+            username: conv.otherUser.username,
+            avatarUrl: conv.otherUser.avatarUrl || '',
+          }
+        ],
+        lastMessage: conv.lastMessage || '',
+        lastMessageTimestamp: conv.lastMessageAt,
+        unreadCount: 0,
+        messages: [],
+      }))
     ];
 
   return (
