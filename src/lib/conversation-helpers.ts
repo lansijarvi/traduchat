@@ -1,5 +1,6 @@
 import { collection, query, where, getDocs, getDoc, addDoc, doc, setDoc, updateDoc, serverTimestamp, Timestamp, orderBy, onSnapshot } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
+import { AI_CONVERSATION_ID } from '@/lib/ai-friend';
 
 export interface Conversation {
   id: string;
@@ -122,6 +123,23 @@ export function listenToMessages(db: Firestore, conversationId: string, callback
 
 export async function getConversationById(db: Firestore, conversationId: string): Promise<Conversation | null> {
   try {
+    // Handle AI chat specially - it doesn't exist in Firestore
+    if (conversationId === AI_CONVERSATION_ID) {
+      return {
+        id: AI_CONVERSATION_ID,
+        participants: [
+          { 
+            uid: 'ai', 
+            username: 'aifriend', 
+            displayName: 'AI Friend', 
+            avatarUrl: '/ai-avatar.png' 
+          }
+        ],
+        createdAt: new Date(),
+        lastMessageAt: new Date(),
+      };
+    }
+
     const conversationRef = doc(db, "conversations", conversationId);
     const conversationSnap = await getDoc(conversationRef);
     if (!conversationSnap.exists()) return null;
