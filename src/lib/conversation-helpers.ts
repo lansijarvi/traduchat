@@ -9,7 +9,8 @@ import {
   doc,
   setDoc,
   Timestamp,
-  getDoc
+  getDoc,
+  updateDoc
 } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 import { translateMessage, type TranslateMessageInput } from '@/ai/flows/real-time-translation';
@@ -125,6 +126,9 @@ export async function sendMessage(
   }
 
   const conversation = conversationSnap.data();
+  if (!conversation.participants) {
+    throw new Error('Conversation is missing participants');
+  }
   const receiverId = conversation.participants.find((id: string) => id !== senderId);
   
   // Get receiver's language preference
