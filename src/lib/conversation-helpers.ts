@@ -126,6 +126,13 @@ export async function getConversationById(db: Firestore, conversationId: string)
     const conversationSnap = await getDoc(conversationRef);
     if (!conversationSnap.exists()) return null;
     const data = conversationSnap.data();
+    
+    // Check if participants array exists
+    if (!data.participants || !Array.isArray(data.participants)) {
+      console.error("Conversation missing participants array:", conversationId, data);
+      return null;
+    }
+    
     const participantPromises = data.participants.map(async (uid: string) => {
       const userDoc = await getDoc(doc(db, "users", uid));
       if (userDoc.exists()) {
