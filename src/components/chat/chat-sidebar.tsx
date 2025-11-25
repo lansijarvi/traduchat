@@ -12,7 +12,6 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Globe, LogOut, Search, Settings, User as UserIcon, Users } from 'lucide-react';
-import { chats as mockChats, loggedInUser } from '@/lib/data';
 import { getUserConversations, type ConversationData } from '@/lib/conversation-helpers';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -20,7 +19,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { AI_CONVERSATION_ID } from '@/lib/ai-friend';
+import { AI_CONVERSATION_ID, linguaAI } from '@/lib/ai-friend';
 
 interface ChatSidebarProps {
   onChatSelect: (chatId: string) => void;
@@ -38,18 +37,14 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
     useEffect(() => {
       if (!db || !user) return;
       
-      const loadConversations = async () => {
-        try {
-          const userConvos = await getUserConversations(db, user.uid);
-          setConversations(userConvos);
-        } catch (error) {
-          console.error('Error loading conversations:', error);
-        } finally {
-          setLoading(false);
-        }
-      };
+      const unsubscribe = getUserConversations(db, user.uid).then(userConvos => {
+        setConversations(userConvos);
+        setLoading(false);
+      }).catch(error => {
+        console.error('Error loading conversations:', error);
+        setLoading(false);
+      });
       
-      loadConversations();
     }, [db, user]);
 
     const handleLogout = async () => {
@@ -70,25 +65,35 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
         }
     }
 
-//     const aiChat = mockChats.find(c => c.id === AI_CONVERSATION_ID);
+    const aiChat = {
+      id: AI_CONVERSATION_ID,
+      otherUser: {
+        uid: linguaAI.id,
+        displayName: linguaAI.name,
+        username: linguaAI.username,
+        avatarUrl: linguaAI.avatarUrl,
+      },
+      lastMessage: 'Ready to practice your Spanish?',
+      lastMessageAt: new Date(Date.now() - 1000 * 60 * 60)
+    };
+
     const allChats = [
-//       ...(aiChat ? [aiChat] : []),
-      ...conversations.map(conv => ({
-        id: conv.id,
-        participants: [
-          loggedInUser,
-          {
-            id: conv.otherUser.uid,
-            name: conv.otherUser.displayName,
-            username: conv.otherUser.username,
-            avatarUrl: conv.otherUser.avatarUrl || '',
-          }
-        ],
-        lastMessage: conv.lastMessage || '',
-        lastMessageTimestamp: conv.lastMessageAt,
-        unreadCount: 0,
-        messages: [],
-      }))
+      aiChat,
+      ...conversations.map(conv => {
+        const otherUserId = conv.participants.find(p => p !== user?.uid);
+        const otherUserDetails = otherUserId ? conv.participantDetails[otherUserId] : null;
+        return {
+          id: conv.id,
+          otherUser: {
+            uid: otherUserId,
+            displayName: otherUserDetails?.displayName || 'Unknown User',
+            username: otherUserDetails?.username || 'unknown',
+            avatarUrl: otherUserDetails?.avatarUrl || '',
+          },
+          lastMessage: conv.lastMessage || 'Start chatting!',
+          lastMessageAt: conv.lastMessageTimestamp,
+        }
+      })
     ];
 
   return (
@@ -112,8 +117,7 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
             <div className="p-4 text-center text-sm text-muted-foreground">No chats yet</div>
           ) : (
             allChats.map(chat => {
-              const otherUser = chat.participants.find(p => p.id !== loggedInUser.id);
-              if (!otherUser) return null;
+              if (!chat.otherUser) return null;
               return (
                 <SidebarMenuItem key={chat.id} onClick={() => onChatSelect(chat.id)}>
                   <SidebarMenuButton
@@ -121,22 +125,17 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
                     className="h-auto p-2 justify-start hover:bg-sidebar-accent"
                   >
                     <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarImage src={otherUser.avatarUrl} alt={otherUser.name} />
-                      <AvatarFallback className="text-xs">{(otherUser?.name || "?")[0]}</AvatarFallback>
+                      <AvatarImage src={chat.otherUser.avatarUrl} alt={chat.otherUser.displayName} />
+                      <AvatarFallback className="text-xs">{(chat.otherUser?.displayName || "?")[0]}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col items-start text-left ml-2 overflow-hidden flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate w-full">{otherUser.name}</p>
+                      <p className="font-semibold text-sm truncate w-full">{chat.otherUser.displayName}</p>
                       <p className="text-xs text-muted-foreground truncate w-full">{chat.lastMessage || 'Start chatting!'}</p>
                     </div>
                     <div className="ml-2 flex flex-col items-end self-start shrink-0">
                       <time className="text-[10px] text-muted-foreground whitespace-nowrap">
-                          {formatDistanceToNow(chat.lastMessageTimestamp, { addSuffix: false })}
+                          {chat.lastMessageAt ? formatDistanceToNow(chat.lastMessageAt, { addSuffix: true }) : ''}
                       </time>
-                      {chat.unreadCount > 0 && (
-                        <span className="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] text-accent-foreground font-semibold">
-                          {chat.unreadCount}
-                        </span>
-                      )}
                     </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

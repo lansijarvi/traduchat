@@ -12,7 +12,7 @@ import {
   getDoc
 } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
-import { translateMessage } from '@/ai/flows/real-time-translation';
+import { translateMessage, type TranslateMessageInput } from '@/ai/flows/real-time-translation';
 
 export interface ConversationData {
   id: string;
@@ -34,6 +34,25 @@ export interface MessageData {
   senderLanguage: 'en' | 'es';
   timestamp: Date;
   read: boolean;
+}
+
+export async function getConversationById(db: Firestore, conversationId: string): Promise<any> {
+    const conversationRef = doc(db, 'conversations', conversationId);
+    const conversationSnap = await getDoc(conversationRef);
+
+    if (!conversationSnap.exists()) {
+        // Special handling for AI chat
+        if (conversationId === 'ai_chat') {
+            return {
+                id: 'ai_chat',
+                name: 'Lingua',
+                avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=lingua&backgroundColor=b6e3f4'
+            };
+        }
+        return null;
+    }
+    const data = conversationSnap.data();
+    return { id: conversationSnap.id, ...data };
 }
 
 // Get user conversations
@@ -117,14 +136,15 @@ export async function sendMessage(
 
   // Auto-translate if languages differ
   let translatedText: string | undefined;
-  if (senderLanguage !== receiverLanguage) {
+  if (senderLanguage !== receiverLanguage && receiverLanguage) {
     try {
       console.log('Translating from', senderLanguage, 'to', receiverLanguage);
-      const translation = await translateMessage({
+      const input: TranslateMessageInput = {
         text,
-        fromLang: senderLanguage,
-        toLang: receiverLanguage,
-      });
+        sourceLanguage: senderLanguage,
+        targetLanguage: receiverLanguage,
+      };
+      const translation = await translateMessage(input);
       translatedText = translation.translatedText;
       console.log('Translation result:', translatedText);
     } catch (error) {
@@ -184,4 +204,42 @@ export async function createConversation(
   });
 
   return conversationId;
+}
+
+export async function acceptFriendRequest(db: Firestore, friendshipId: string, currentUserId: string): Promise<string> {
+  const friendshipRef = doc(db, 'friendships', friendshipId);
+  const friendshipSnap = await getDoc(friendshipRef);
+
+  if (!friendshipSnap.exists()) throw new Error('Friendship not found');
+
+  const friendship = friendshipSnap.data();
+  if (friendship.toUserId !== currentUserId) throw new Error('Not authorized');
+
+  await updateDoc(friendshipRef, {
+    status: 'accepted',
+    acceptedAt: serverTimestamp(),
+  });
+
+  const fromUserId = friendship.fromUserId;
+  const toUserId = friendship.toUserId;
+
+  const [fromUserDoc, toUserDoc] = await Promise.all([
+    getDoc(doc(db, 'users', fromUserId)),
+    getDoc(doc(db, 'users', toUserId)),
+  ]);
+
+  if (!fromUserDoc.exists() || !toUserDoc.exists()) {
+    throw new Error('User not found');
+  }
+
+  const fromUserData = fromUserDoc.data();
+  const toUserData = toUserDoc.data();
+
+  return await createConversation(
+    db,
+    fromUserId,
+    toUserId,
+    { username: fromUserData.username, displayName: fromUserData.displayName, avatarUrl: fromUserData.avatarUrl },
+    { username: toUserData.username, displayName: toUserData.displayName, avatarUrl: toUserData.avatarUrl }
+  );
 }
