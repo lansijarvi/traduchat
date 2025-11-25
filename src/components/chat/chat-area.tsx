@@ -7,7 +7,6 @@ import { ChatMessageList, type Message } from "@/components/chat/chat-message-li
 import { ChatInput } from "@/components/chat/chat-input";
 import { MessageSquare, Loader2 } from "lucide-react";
 import { 
-  getConversationMessages, 
   sendMessage, 
   getConversationById 
 } from "@/lib/conversation-helpers";
@@ -16,9 +15,10 @@ import { useToast } from "@/hooks/use-toast";
 
 interface ChatAreaProps {
   chatId: string | null;
+  onBack?: () => void;
 }
 
-export function ChatArea({ chatId }: ChatAreaProps) {
+export function ChatArea({ chatId, onBack }: ChatAreaProps) {
   const db = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
@@ -30,6 +30,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   useEffect(() => {
     if (!db || !chatId) {
       setConversation(null);
+      setMessages([]);
       return;
     }
 
@@ -45,6 +46,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
         const otherUserDetails = conv.participantDetails[otherUserId];
 
         setConversation({
+            ...conv, // store full conversation
             name: otherUserDetails?.displayName,
             avatarUrl: otherUserDetails?.avatarUrl,
         });
@@ -63,28 +65,34 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
   // Real-time messages listener
   useEffect(() => {
-    if (!db || !chatId) {
+    if (!db || !chatId || !conversation) {
       setMessages([]);
       return;
     }
 
-    const messagesRef = collection(db, "messages");
-    const q = query(
-      messagesRef,
-      where("conversationId", "==", chatId),
-      orderBy("timestamp", "asc")
-    );
+    const messagesRef = collection(db, "conversations", chatId, "messages");
+    const q = query(messagesRef, orderBy("timestamp", "asc"));
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
         const msgs: Message[] = snapshot.docs.map((doc) => {
           const data = doc.data();
-          const senderDetails = conversation?.participantDetails[data.senderId];
+          const senderId = data.senderId;
+          const senderDetails = conversation.participantDetails[senderId];
+          const otherUserId = conversation.participants.find(p => p !== senderId);
+          const receiverLanguage = otherUserId ? conversation.participantDetails[otherUserId]?.language || 'en' : 'en';
+
+          // Determine which text to show
+          let contentToShow = data.text;
+          if (data.translatedText && user?.uid === otherUserId) {
+            contentToShow = data.translatedText;
+          }
+
           return {
             id: doc.id,
-            senderId: data.senderId,
-            content: data.translatedText || data.content,
+            senderId: senderId,
+            content: contentToShow,
             timestamp: data.timestamp?.toDate() || new Date(),
             senderName: senderDetails?.displayName,
             senderAvatar: senderDetails?.avatarUrl,
@@ -103,13 +111,12 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     );
 
     return () => unsubscribe();
-  }, [db, chatId, conversation]);
+  }, [db, chatId, conversation, user?.uid, toast]);
 
   const handleSendMessage = async (content: string) => {
     if (!db || !user || !chatId) return;
 
     try {
-      // Fetch user's language preference from Firestore
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const userLanguage = userDoc.exists() ? (userDoc.data().language || 'en') : 'en';
       
@@ -127,7 +134,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
 
   if (!chatId) {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-background text-center text-muted-foreground p-8">
+      <div className="hidden md:flex h-full flex-col items-center justify-center bg-background text-center text-muted-foreground p-8">
         <MessageSquare className="h-16 w-16 mb-4" />
         <h2 className="text-2xl font-semibold">Select a chat to start messaging</h2>
         <p className="mt-2 max-w-sm">Choose a conversation from the sidebar</p>
@@ -144,8 +151,8 @@ export function ChatArea({ chatId }: ChatAreaProps) {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      {conversation && <ChatHeader name={conversation.name} avatarUrl={conversation.avatarUrl} />}
+    <div className="flex h-full flex-col bg-card">
+      {conversation && <ChatHeader name={conversation.name} avatarUrl={conversation.avatarUrl} onBack={onBack} />}
       <ChatMessageList messages={messages} currentUserId={user?.uid || ""} />
       <ChatInput onSendMessage={handleSendMessage} />
     </div>

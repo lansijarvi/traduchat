@@ -25,6 +25,7 @@ export interface ConversationData {
     username: string;
     displayName: string;
     avatarUrl: string | null;
+    language: 'en' | 'es';
   }>;
   lastMessage: string;
   lastMessageTimestamp: Date;
@@ -77,33 +78,6 @@ export async function getUserConversations(db: Firestore, userId: string): Promi
   });
 }
 
-// Listen to messages in a conversation
-export function getConversationMessages(
-  db: Firestore,
-  conversationId: string,
-  callback: (messages: MessageData[]) => void
-): () => void {
-  const messagesRef = collection(db, 'messages');
-  const q = query(
-    messagesRef,
-    where('conversationId', '==', conversationId),
-    orderBy('timestamp', 'asc')
-  );
-
-  return onSnapshot(q, (snapshot) => {
-    const messages: MessageData[] = snapshot.docs.map(doc => ({
-      id: doc.id,
-      text: doc.data().content || doc.data().text,
-      translatedText: doc.data().translatedText,
-      senderId: doc.data().senderId,
-      senderLanguage: doc.data().senderLanguage || 'en',
-      timestamp: doc.data().timestamp?.toDate() || new Date(),
-      read: doc.data().read || false,
-    } as MessageData));
-    callback(messages);
-  });
-}
-
 // Send message with automatic translation
 export async function sendMessage(
   db: Firestore,
@@ -139,34 +113,25 @@ export async function sendMessage(
         translatedText = translation.translatedText;
       } catch (error) {
         console.error('Translation failed:', error);
-        // Fail gracefully, send message without translation
       }
     }
   }
-
-  const messagePayload: {
-    content: string;
-    senderId: string;
-    senderLanguage: 'en' | 'es';
-    conversationId: string;
-    timestamp: FieldValue;
-    read: boolean;
-    translatedText?: string;
-  } = {
-    content: text,
+  
+  const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+  const messageData: any = {
+    text: text,
     senderId,
     senderLanguage,
-    conversationId,
     timestamp: serverTimestamp(),
     read: false,
   };
-
+  
+  // Only add translatedText if it exists
   if (translatedText) {
-    messagePayload.translatedText = translatedText;
+    messageData.translatedText = translatedText;
   }
-
-  const messagesRef = collection(db, 'messages');
-  await addDoc(messagesRef, messagePayload);
+  
+  await addDoc(messagesRef, messageData);
 
   await setDoc(conversationRef, {
     lastMessage: text,
@@ -175,14 +140,13 @@ export async function sendMessage(
   }, { merge: true });
 }
 
-
 // Create a new conversation
 export async function createConversation(
   db: Firestore,
   participant1Id: string,
   participant2Id: string,
-  participant1Details: { username: string; displayName: string; avatarUrl?: string },
-  participant2Details: { username: string; displayName: string; avatarUrl?: string }
+  participant1Details: { username: string; displayName: string; avatarUrl?: string, language?: 'en' | 'es' },
+  participant2Details: { username: string; displayName: string; avatarUrl?: string, language?: 'en' | 'es' }
 ): Promise<string> {
   const conversationId = `${[participant1Id, participant2Id].sort().join('_')}`;
   const conversationRef = doc(db, 'conversations', conversationId);
@@ -194,11 +158,13 @@ export async function createConversation(
         username: participant1Details.username,
         displayName: participant1Details.displayName,
         avatarUrl: participant1Details.avatarUrl || null,
+        language: participant1Details.language || 'en',
       },
       [participant2Id]: {
         username: participant2Details.username,
         displayName: participant2Details.displayName,
         avatarUrl: participant2Details.avatarUrl || null,
+        language: participant2Details.language || 'en',
       },
     },
     lastMessage: '',
@@ -246,12 +212,14 @@ export async function acceptFriendRequest(db: Firestore, friendshipId: string, c
     {
       username: fromUserData.username,
       displayName: fromUserData.displayName,
-      avatarUrl: fromUserData.avatarUrl
+      avatarUrl: fromUserData.avatarUrl,
+      language: fromUserData.language
     },
     {
       username: toUserData.username,
       displayName: toUserData.displayName,
-      avatarUrl: toUserData.avatarUrl
+      avatarUrl: toUserData.avatarUrl,
+      language: toUserData.language
     }
   );
 

@@ -7,7 +7,8 @@ import {
   Phone, 
   Video, 
   Search,
-  Menu
+  Menu,
+  ArrowLeft
 } from 'lucide-react';
 import { useSidebar } from "@/components/ui/sidebar";
 
@@ -15,29 +16,41 @@ interface ChatHeaderProps {
   name: string;
   avatarUrl?: string;
   status?: string;
+  onBack?: () => void;
 }
 
-export function ChatHeader({ name, avatarUrl, status = 'online' }: ChatHeaderProps) {
+export function ChatHeader({ name, avatarUrl, status, onBack }: ChatHeaderProps) {
   const { toggleSidebar } = useSidebar();
   
   return (
     <div className="flex items-center justify-between p-2 border-b border-border bg-card">
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-7 w-7 md:hidden shrink-0" 
-          onClick={toggleSidebar}
-        >
-          <Menu className="h-4 w-4" />
-        </Button>
+        {onBack ? (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-7 w-7 shrink-0" 
+            onClick={onBack}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-7 w-7 md:hidden shrink-0" 
+            onClick={toggleSidebar}
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+        )}
         <Avatar className="h-8 w-8 shrink-0">
           <AvatarImage src={avatarUrl} alt={name} />
           <AvatarFallback className="text-xs">{(name?.[0] || "U")}</AvatarFallback>
         </Avatar>
         <div className="flex flex-col min-w-0">
           <h2 className="font-semibold text-sm truncate">{name}</h2>
-          {status && <span className="text-[10px] text-muted-foreground">{status}</span>}
+          {status && <span className="text-xs text-muted-foreground">{status}</span>}
         </div>
       </div>
       <div className="flex items-center gap-0.5 shrink-0">
