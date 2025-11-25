@@ -131,42 +131,49 @@ export async function sendMessage(
   }
   const receiverId = conversation.participants.find((id: string) => id !== senderId);
   
-  // Get receiver's language preference
-  const receiverRef = doc(db, 'users', receiverId);
-  const receiverSnap = await getDoc(receiverRef);
-  const receiverLanguage = receiverSnap.exists() ? (receiverSnap.data().language || 'en') : 'en';
+  if (!receiverId) {
+    // This could happen in a group chat, but we don't have those yet.
+    // For now, let's just not translate.
+    console.warn("Could not find a receiver to translate for.");
+  } else {
+    // Get receiver's language preference
+    const receiverRef = doc(db, 'users', receiverId);
+    const receiverSnap = await getDoc(receiverRef);
+    const receiverLanguage = receiverSnap.exists() ? (receiverSnap.data().language || 'en') : 'en';
 
-  console.log('Translation check:', { senderLanguage, receiverLanguage, text });
+    console.log('Translation check:', { senderLanguage, receiverLanguage, text });
 
-  // Auto-translate if languages differ
-  let translatedText: string | undefined;
-  if (senderLanguage !== receiverLanguage && receiverLanguage) {
-    try {
-      console.log('Translating from', senderLanguage, 'to', receiverLanguage);
-      const input: TranslateMessageInput = {
-        text,
-        sourceLanguage: senderLanguage,
-        targetLanguage: receiverLanguage,
-      };
-      const translation = await translateMessage(input);
-      translatedText = translation.translatedText;
-      console.log('Translation result:', translatedText);
-    } catch (error) {
-      console.error('Translation failed:', error);
+    // Auto-translate if languages differ
+    let translatedText: string | undefined;
+    if (senderLanguage !== receiverLanguage && receiverLanguage) {
+      try {
+        console.log('Translating from', senderLanguage, 'to', receiverLanguage);
+        const input: TranslateMessageInput = {
+          text,
+          sourceLanguage: senderLanguage,
+          targetLanguage: receiverLanguage,
+        };
+        const translation = await translateMessage(input);
+        translatedText = translation.translatedText;
+        console.log('Translation result:', translatedText);
+      } catch (error) {
+        console.error('Translation failed:', error);
+      }
     }
+
+    // Save message to top-level messages collection
+    const messagesRef = collection(db, 'messages');
+    await addDoc(messagesRef, {
+      content: text,
+      ...(translatedText && { translatedText }),
+      senderId,
+      senderLanguage,
+      conversationId,
+      timestamp: serverTimestamp(),
+      read: false,
+    });
   }
 
-  // Save message to top-level messages collection (matching old structure)
-  const messagesRef = collection(db, 'messages');
-  await addDoc(messagesRef, {
-    content: text,
-    translatedText,
-    senderId,
-    senderLanguage,
-    conversationId,
-    timestamp: serverTimestamp(),
-    read: false,
-  });
 
   // Update conversation last message
   await setDoc(conversationRef, {
@@ -217,7 +224,7 @@ export async function acceptFriendRequest(db: Firestore, friendshipId: string, c
   if (!friendshipSnap.exists()) throw new Error('Friendship not found');
 
   const friendship = friendshipSnap.data();
-  if (friendship.toUserId !== currentUserId) throw new Error('Not authorized');
+  if (friendship.user2Id !== currentUserId) throw new Error('Not authorized to accept this request.');
 
   await updateDoc(friendshipRef, {
     status: 'accepted',
@@ -225,7 +232,7 @@ export async function acceptFriendRequest(db: Firestore, friendshipId: string, c
   });
 
   const fromUserId = friendship.fromUserId;
-  const toUserId = friendship.toUserId;
+  const toUserId = friendship.user2Id;
 
   const [fromUserDoc, toUserDoc] = await Promise.all([
     getDoc(doc(db, 'users', fromUserId)),
