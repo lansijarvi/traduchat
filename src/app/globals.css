@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer base {
   :root {
     --background: 207 89% 94%;
@@ -42,38 +38,39 @@ body {
     --sidebar-border: 207 40% 88%;
     --sidebar-ring: 207 88% 68%;
   }
+  
   .dark {
-    --background: 216 34% 17%;
+    --background: 220 13% 9%;
     --foreground: 210 40% 98%;
-    --card: 216 34% 22%;
+    --card: 220 13% 12%;
     --card-foreground: 210 40% 98%;
-    --popover: 216 34% 17%;
+    --popover: 220 13% 12%;
     --popover-foreground: 210 40% 98%;
     --primary: 207 88% 68%;
     --primary-foreground: 210 100% 10%;
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 220 13% 15%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
+    --muted: 220 13% 15%;
     --muted-foreground: 215 20.2% 65.1%;
     --accent: 33 100% 65%;
     --accent-foreground: 35 100% 15%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 27.5%;
-    --input: 217.2 32.6% 27.5%;
+    --border: 220 13% 20%;
+    --input: 220 13% 20%;
     --ring: 207 88% 68%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --sidebar-background: 216 34% 17%;
+    --sidebar-background: 220 13% 11%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 207 88% 68%;
     --sidebar-primary-foreground: 210 100% 10%;
-    --sidebar-accent: 216 34% 22%;
+    --sidebar-accent: 220 13% 15%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217.2 32.6% 27.5%;
+    --sidebar-border: 220 13% 20%;
     --sidebar-ring: 207 88% 68%;
   }
 }
@@ -84,5 +81,19 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+}
+
+/* Smooth scrolling for chat */
+.chat-messages {
+  scroll-behavior: smooth;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    z-index: 50;
   }
 }

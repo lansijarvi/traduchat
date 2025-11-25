@@ -13,12 +13,12 @@ export default function ChatLayout() {
   const [selectedChatId, setSelectedChatId] = React.useState<string | null>(AI_CONVERSATION_ID);
 
   return (
-    <SidebarProvider>
-      <div className="flex h-full">
-        <Sidebar>
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex h-screen w-full overflow-hidden">
+        <Sidebar className="border-r border-sidebar-border">
           <ChatSidebar onChatSelect={setSelectedChatId} selectedChatId={selectedChatId} />
         </Sidebar>
-        <SidebarInset className="p-0 m-0 rounded-none shadow-none md:m-0 md:rounded-none">
+        <SidebarInset className="flex-1 p-0 m-0">
           <ChatArea chatId={selectedChatId} />
         </SidebarInset>
       </div>
