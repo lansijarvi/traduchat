@@ -1,3 +1,4 @@
+
 import { 
   collection, 
   addDoc, 
@@ -248,27 +249,22 @@ export async function acceptFriendRequest(db: Firestore, friendshipId: string, c
   const toUserData = toUserDoc.data();
 
   const conversationId = `${[fromUserId, toUserId].sort().join('_')}`;
-  const conversationRef = doc(db, 'conversations', conversationId);
-
-  await setDoc(conversationRef, {
-    participants: [fromUserId, toUserId],
-    participantDetails: {
-      [fromUserId]: {
-        username: fromUserData.username,
-        displayName: fromUserData.displayName,
-        avatarUrl: fromUserData.avatarUrl || null,
-      },
-      [toUserId]: {
-        username: toUserData.username,
-        displayName: toUserData.displayName,
-        avatarUrl: toUserData.avatarUrl || null,
-      },
+  
+  await createConversation(
+    db,
+    fromUserId,
+    toUserId,
+    {
+      username: fromUserData.username,
+      displayName: fromUserData.displayName,
+      avatarUrl: fromUserData.avatarUrl
     },
-    lastMessage: 'Say hi!',
-    lastMessageTimestamp: serverTimestamp(),
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+    {
+      username: toUserData.username,
+      displayName: toUserData.displayName,
+      avatarUrl: toUserData.avatarUrl
+    }
+  );
 
   return conversationId;
 }
