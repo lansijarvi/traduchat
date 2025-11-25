@@ -35,8 +35,10 @@ export async function sendFriendRequest(db: Firestore, fromUserId: string, toUse
   await addDoc(friendshipsRef, {
     fromUserId: fromUserId,
     toUserId: toUserId,
+    status: 'pending',
     createdAt: serverTimestamp(),
   });
+}
 }
 
 // Get pending friend requests for a user
