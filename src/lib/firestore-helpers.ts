@@ -35,7 +35,6 @@ export async function sendFriendRequest(db: Firestore, fromUserId: string, toUse
   await addDoc(friendshipsRef, {
     fromUserId: fromUserId,
     toUserId: toUserId,
-    requestedBy: fromUserId,
     createdAt: serverTimestamp(),
   });
 }
