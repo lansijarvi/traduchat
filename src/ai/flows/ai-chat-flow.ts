@@ -2,6 +2,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getLinguaSystemPrompt } from '@/lib/ai-friend';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const AIChatInputSchema = z.object({
   userMessage: z.string(),
@@ -12,11 +13,11 @@ export type AIChatInput = z.infer<typeof AIChatInputSchema>;
 
 export async function chatWithLingua(input: AIChatInput): Promise<{ response: string }> {
   const systemPrompt = getLinguaSystemPrompt(input.userLanguage);
-  const prompt = `${systemPrompt}\n\nUser: ${input.userMessage}`;
   
   const result = await ai.generate({
-    model: 'googleai/gemini-2.0-flash-exp',
-    prompt,
+    model: googleAI.model('gemini-2.5-flash'),
+    system: systemPrompt,
+    prompt: input.userMessage,
     config: { temperature: 0.9, maxOutputTokens: 150 },
   });
 
