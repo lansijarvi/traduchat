@@ -212,7 +212,7 @@ export async function createConversation(
     lastMessageTimestamp: serverTimestamp(),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  }, { merge: true });
 
   return conversationId;
 }
