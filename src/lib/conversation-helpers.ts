@@ -128,7 +128,10 @@ export async function sendMessage(
   }
 
   const conversation = conversationSnap.data();
-  const receiverId = conversation.participants?.find((id: string) => id !== senderId);
+  if (!conversation.participants) {
+    throw new Error('Conversation is missing participants');
+  }
+  const receiverId = conversation.participants.find((id: string) => id !== senderId);
   
   let translatedText: string | undefined;
   
@@ -183,6 +186,7 @@ export async function sendMessage(
   }, { merge: true });
 }
 
+
 // Create a new conversation
 export async function createConversation(
   db: Firestore,
@@ -232,7 +236,7 @@ export async function acceptFriendRequest(db: Firestore, friendshipId: string, c
   });
 
   const fromUserId = friendship.fromUserId;
-  const toUserId = friendship.user2Id;
+  const toUserId = friendship.toUserId;
 
   const [fromUserDoc, toUserDoc] = await Promise.all([
     getDoc(doc(db, 'users', fromUserId)),
