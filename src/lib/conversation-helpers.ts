@@ -150,6 +150,7 @@ export async function sendMessage(
         translatedText = translation.translatedText;
       } catch (error) {
         console.error('Translation failed:', error);
+        // Fail gracefully, send message without translation
       }
     }
   }
