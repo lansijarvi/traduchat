@@ -248,9 +248,7 @@ export async function acceptFriendRequest(db: Firestore, friendshipId: string, c
   const fromUserData = fromUserDoc.data();
   const toUserData = toUserDoc.data();
 
-  const conversationId = `${[fromUserId, toUserId].sort().join('_')}`;
-  
-  await createConversation(
+  const conversationId = await createConversation(
     db,
     fromUserId,
     toUserId,
