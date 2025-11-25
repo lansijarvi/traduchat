@@ -147,16 +147,13 @@ export async function getConversationById(db: Firestore, conversationId: string)
   }
 }
 
-// Accept friend request and create conversation
 export async function acceptFriendRequest(db: Firestore, friendshipId: string, currentUserId: string): Promise<string> {
-  // Update friendship status
   const friendshipRef = doc(db, 'friendships', friendshipId);
   await updateDoc(friendshipRef, {
     status: 'accepted',
     acceptedAt: serverTimestamp(),
   });
   
-  // Get friendship data to find the other user
   const friendshipDoc = await getDoc(friendshipRef);
   const friendshipData = friendshipDoc.data();
   
@@ -166,7 +163,6 @@ export async function acceptFriendRequest(db: Firestore, friendshipId: string, c
     ? friendshipData.toUserId 
     : friendshipData.fromUserId;
   
-  // Create conversation with simple structure
   const conversationId = `${[currentUserId, otherUserId].sort().join('_')}`;
   await setDoc(doc(db, 'conversations', conversationId), {
     participants: [currentUserId, otherUserId],
