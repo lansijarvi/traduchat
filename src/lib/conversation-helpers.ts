@@ -128,10 +128,7 @@ export async function sendMessage(
   }
 
   const conversation = conversationSnap.data();
-  if (!conversation.participants) {
-    throw new Error('Conversation is missing participants');
-  }
-  const receiverId = conversation.participants.find((id: string) => id !== senderId);
+  const receiverId = conversation.participants?.find((id: string) => id !== senderId);
   
   let translatedText: string | undefined;
   
