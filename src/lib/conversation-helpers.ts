@@ -224,7 +224,7 @@ export async function acceptFriendRequest(db: Firestore, friendshipId: string, c
   if (!friendshipSnap.exists()) throw new Error('Friendship not found');
 
   const friendship = friendshipSnap.data();
-  if (friendship.user2Id !== currentUserId) throw new Error('Not authorized to accept this request.');
+  if (friendship.toUserId !== currentUserId) throw new Error('Not authorized to accept this request.');
 
   await updateDoc(friendshipRef, {
     status: 'accepted',
