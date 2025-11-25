@@ -35,7 +35,7 @@ export async function sendFriendRequest(db: Firestore, fromUserId: string, toUse
   await addDoc(friendshipsRef, {
     fromUserId: fromUserId,
     toUserId: toUserId,
-    requestedBy: fromUserId,
+    status: 'pending',
     createdAt: serverTimestamp(),
   });
 }
@@ -64,14 +64,14 @@ export async function getPendingFriendRequests(db: Firestore, userId: string): P
 export async function getFriends(db: Firestore, userId: string): Promise<UserProfile[]> {
   const friendshipsRef = collection(db, 'friendships');
   
-  const q1 = query(friendshipsRef, where('user1Id', '==', userId), where('status', '==', 'accepted'));
+  const q1 = query(friendshipsRef, where('fromUserId', '==', userId), where('status', '==', 'accepted'));
   const q2 = query(friendshipsRef, where('toUserId', '==', userId), where('status', '==', 'accepted'));
   
   const [snapshot1, snapshot2] = await Promise.all([getDocs(q1), getDocs(q2)]);
   
   const friendIds = new Set<string>();
-  snapshot1.docs.forEach(doc => friendIds.add(doc.data().user2Id));
-  snapshot2.docs.forEach(doc => friendIds.add(doc.data().user1Id));
+  snapshot1.docs.forEach(doc => friendIds.add(doc.data().toUserId));
+  snapshot2.docs.forEach(doc => friendIds.add(doc.data().fromUserId));
   
   const friends: UserProfile[] = [];
   for (const friendId of friendIds) {
