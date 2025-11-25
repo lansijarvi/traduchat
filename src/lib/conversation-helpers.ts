@@ -10,7 +10,9 @@ import {
   setDoc,
   Timestamp,
   getDoc,
-  updateDoc
+  updateDoc,
+  DocumentData,
+  FieldValue
 } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 import { translateMessage, type TranslateMessageInput } from '@/ai/flows/real-time-translation';
@@ -117,7 +119,6 @@ export async function sendMessage(
   text: string,
   senderLanguage: 'en' | 'es'
 ): Promise<void> {
-  // Get conversation to find receiver's language
   const conversationRef = doc(db, 'conversations', conversationId);
   const conversationSnap = await getDoc(conversationRef);
   
@@ -131,51 +132,51 @@ export async function sendMessage(
   }
   const receiverId = conversation.participants.find((id: string) => id !== senderId);
   
-  if (!receiverId) {
-    // This could happen in a group chat, but we don't have those yet.
-    // For now, let's just not translate.
-    console.warn("Could not find a receiver to translate for.");
-  } else {
-    // Get receiver's language preference
+  let translatedText: string | undefined;
+  
+  if (receiverId) {
     const receiverRef = doc(db, 'users', receiverId);
     const receiverSnap = await getDoc(receiverRef);
     const receiverLanguage = receiverSnap.exists() ? (receiverSnap.data().language || 'en') : 'en';
 
-    console.log('Translation check:', { senderLanguage, receiverLanguage, text });
-
-    // Auto-translate if languages differ
-    let translatedText: string | undefined;
-    if (senderLanguage !== receiverLanguage && receiverLanguage) {
+    if (senderLanguage !== receiverLanguage) {
       try {
-        console.log('Translating from', senderLanguage, 'to', receiverLanguage);
-        const input: TranslateMessageInput = {
+        const translation = await translateMessage({
           text,
           sourceLanguage: senderLanguage,
           targetLanguage: receiverLanguage,
-        };
-        const translation = await translateMessage(input);
+        });
         translatedText = translation.translatedText;
-        console.log('Translation result:', translatedText);
       } catch (error) {
         console.error('Translation failed:', error);
       }
     }
-
-    // Save message to top-level messages collection
-    const messagesRef = collection(db, 'messages');
-    await addDoc(messagesRef, {
-      content: text,
-      ...(translatedText && { translatedText }),
-      senderId,
-      senderLanguage,
-      conversationId,
-      timestamp: serverTimestamp(),
-      read: false,
-    });
   }
 
+  const messagePayload: {
+    content: string;
+    senderId: string;
+    senderLanguage: 'en' | 'es';
+    conversationId: string;
+    timestamp: FieldValue;
+    read: boolean;
+    translatedText?: string;
+  } = {
+    content: text,
+    senderId,
+    senderLanguage,
+    conversationId,
+    timestamp: serverTimestamp(),
+    read: false,
+  };
 
-  // Update conversation last message
+  if (translatedText) {
+    messagePayload.translatedText = translatedText;
+  }
+
+  const messagesRef = collection(db, 'messages');
+  await addDoc(messagesRef, messagePayload);
+
   await setDoc(conversationRef, {
     lastMessage: text,
     lastMessageTimestamp: serverTimestamp(),
