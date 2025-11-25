@@ -63,19 +63,27 @@ export async function getUserConversations(db: Firestore, userId: string): Promi
 }
 
 // Listen to messages in a conversation
-export function listenToMessages(
+export function getConversationMessages(
   db: Firestore,
   conversationId: string,
   callback: (messages: MessageData[]) => void
 ): () => void {
-  const messagesRef = collection(db, 'conversations', conversationId, 'messages');
-  const q = query(messagesRef, orderBy('timestamp', 'asc'));
+  const messagesRef = collection(db, 'messages');
+  const q = query(
+    messagesRef,
+    where('conversationId', '==', conversationId),
+    orderBy('timestamp', 'asc')
+  );
 
   return onSnapshot(q, (snapshot) => {
     const messages: MessageData[] = snapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data(),
+      text: doc.data().content || doc.data().text,
+      translatedText: doc.data().translatedText,
+      senderId: doc.data().senderId,
+      senderLanguage: doc.data().senderLanguage || 'en',
       timestamp: doc.data().timestamp?.toDate() || new Date(),
+      read: doc.data().read || false,
     } as MessageData));
     callback(messages);
   });
@@ -105,28 +113,33 @@ export async function sendMessage(
   const receiverSnap = await getDoc(receiverRef);
   const receiverLanguage = receiverSnap.exists() ? (receiverSnap.data().language || 'en') : 'en';
 
+  console.log('Translation check:', { senderLanguage, receiverLanguage, text });
+
   // Auto-translate if languages differ
   let translatedText: string | undefined;
   if (senderLanguage !== receiverLanguage) {
     try {
+      console.log('Translating from', senderLanguage, 'to', receiverLanguage);
       const translation = await translateMessage({
         text,
         fromLang: senderLanguage,
         toLang: receiverLanguage,
       });
       translatedText = translation.translatedText;
+      console.log('Translation result:', translatedText);
     } catch (error) {
       console.error('Translation failed:', error);
     }
   }
 
-  // Save message with translation
-  const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+  // Save message to top-level messages collection (matching old structure)
+  const messagesRef = collection(db, 'messages');
   await addDoc(messagesRef, {
-    text,
+    content: text,
     translatedText,
     senderId,
     senderLanguage,
+    conversationId,
     timestamp: serverTimestamp(),
     read: false,
   });

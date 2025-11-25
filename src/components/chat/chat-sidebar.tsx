@@ -70,9 +70,9 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
         }
     }
 
-    const aiChat = mockChats.find(c => c.id === AI_CONVERSATION_ID);
+//     const aiChat = mockChats.find(c => c.id === AI_CONVERSATION_ID);
     const allChats = [
-      ...(aiChat ? [aiChat] : []),
+//       ...(aiChat ? [aiChat] : []),
       ...conversations.map(conv => ({
         id: conv.id,
         participants: [

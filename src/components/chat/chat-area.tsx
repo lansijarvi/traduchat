@@ -11,7 +11,7 @@ import {
   sendMessage, 
   getConversationById 
 } from "@/lib/conversation-helpers";
-import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
 interface ChatAreaProps {
@@ -69,7 +69,7 @@ export function ChatArea({ chatId }: ChatAreaProps) {
           return {
             id: doc.id,
             senderId: data.senderId,
-            content: data.content,
+            content: data.translatedText || data.content,
             timestamp: data.timestamp?.toDate() || new Date(),
             senderName: data.senderName,
             senderAvatar: data.senderAvatar,
@@ -94,7 +94,11 @@ export function ChatArea({ chatId }: ChatAreaProps) {
     if (!db || !user || !chatId) return;
 
     try {
-      await sendMessage(db, chatId, user.uid, content);
+      // Fetch user's language preference from Firestore
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userLanguage = userDoc.exists() ? (userDoc.data().language || 'en') : 'en';
+      
+      await sendMessage(db, chatId, user.uid, content, userLanguage);
     } catch (error: any) {
       console.error("Error sending message:", error);
       toast({
