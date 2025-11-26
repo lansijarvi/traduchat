@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -21,12 +20,15 @@ interface ChatMessageListProps {
 }
 
 export function ChatMessageList({ messages, currentUserId }: ChatMessageListProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    scrollToBottom();
   }, [messages]);
 
   if (messages.length === 0) {
@@ -38,7 +40,11 @@ export function ChatMessageList({ messages, currentUserId }: ChatMessageListProp
   }
 
   return (
-    <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+    <div 
+      ref={scrollContainerRef}
+      className="flex-1 overflow-y-auto p-4 scroll-smooth"
+      style={{ overflowAnchor: 'auto' }}
+    >
       <div className="space-y-4">
         {messages.map((message) => {
           const isOwn = message.senderId === currentUserId;
@@ -51,7 +57,7 @@ export function ChatMessageList({ messages, currentUserId }: ChatMessageListProp
               )}
             >
               {!isOwn && (
-                <Avatar className="h-8 w-8">
+                <Avatar className="h-8 w-8 shrink-0">
                   <AvatarImage src={message.senderAvatar} />
                   <AvatarFallback>
                     {message.senderName?.[0]?.toUpperCase() || "?"}
@@ -88,7 +94,8 @@ export function ChatMessageList({ messages, currentUserId }: ChatMessageListProp
             </div>
           );
         })}
+        <div ref={messagesEndRef} />
       </div>
-    </ScrollArea>
+    </div>
   );
 }

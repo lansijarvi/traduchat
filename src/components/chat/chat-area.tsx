@@ -46,9 +46,10 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
         const otherUserDetails = conv.participantDetails[otherUserId];
 
         setConversation({
-            ...conv, // store full conversation
+            ...conv,
             name: otherUserDetails?.displayName,
             avatarUrl: otherUserDetails?.avatarUrl,
+            otherUserLanguage: otherUserDetails?.language || 'en',
         });
 
       })
@@ -80,12 +81,11 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
           const data = doc.data();
           const senderId = data.senderId;
           const senderDetails = conversation.participantDetails[senderId];
-          const otherUserId = conversation.participants.find(p => p !== senderId);
-          const receiverLanguage = otherUserId ? conversation.participantDetails[otherUserId]?.language || 'en' : 'en';
+          const isCurrentUser = senderId === user?.uid;
 
-          // Determine which text to show
+          // Show translated text if available and user is receiver
           let contentToShow = data.text;
-          if (data.translatedText && user?.uid === otherUserId) {
+          if (!isCurrentUser && data.translatedText) {
             contentToShow = data.translatedText;
           }
 
@@ -93,6 +93,8 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
             id: doc.id,
             senderId: senderId,
             content: contentToShow,
+            originalContent: data.text,
+            wasTranslated: !isCurrentUser && !!data.translatedText,
             timestamp: data.timestamp?.toDate() || new Date(),
             senderName: senderDetails?.displayName,
             senderAvatar: senderDetails?.avatarUrl,
@@ -152,7 +154,14 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
 
   return (
     <div className="flex h-full flex-col bg-card">
-      {conversation && <ChatHeader name={conversation.name} avatarUrl={conversation.avatarUrl} onBack={onBack} />}
+      {conversation && (
+        <ChatHeader 
+          name={conversation.name} 
+          avatarUrl={conversation.avatarUrl} 
+          onBack={onBack}
+          language={conversation.otherUserLanguage}
+        />
+      )}
       <ChatMessageList messages={messages} currentUserId={user?.uid || ""} />
       <ChatInput onSendMessage={handleSendMessage} />
     </div>

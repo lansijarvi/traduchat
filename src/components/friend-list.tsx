@@ -7,8 +7,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser } from "@/firebase";
 import { getFriends, deleteFriend, type UserProfile } from "@/lib/firestore-helpers";
+import { createConversation } from "@/lib/conversation-helpers";
 import { Loader2, MessageSquare, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { doc, getDoc } from "firebase/firestore";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,12 +41,50 @@ export function FriendList() {
     });
   }, [db, user]);
 
-  const handleMessage = (friendId: string) => {
-    const conversationId = [user?.uid, friendId].sort().join('_');
-    // In a real app, you'd navigate to the chat, maybe passing the conversationId
-    // For now, we'll just log it and redirect home, where the chat layout can open it.
-    console.log("Starting chat with conversationId:", conversationId);
-    router.push('/');
+  const handleMessage = async (friend: UserProfile) => {
+    if (!db || !user) return;
+    
+    setProcessingId(friend.uid);
+    
+    try {
+      // Get current user details
+      const currentUserDoc = await getDoc(doc(db, 'users', user.uid));
+      if (!currentUserDoc.exists()) {
+        throw new Error('User profile not found');
+      }
+      const currentUserData = currentUserDoc.data();
+      
+      // Create or get conversation
+      const conversationId = await createConversation(
+        db,
+        user.uid,
+        friend.uid,
+        {
+          username: currentUserData.username || '',
+          displayName: currentUserData.displayName || user.displayName || '',
+          avatarUrl: currentUserData.avatarUrl || user.photoURL || '',
+          language: currentUserData.language || 'en',
+        },
+        {
+          username: friend.username || '',
+          displayName: friend.displayName || '',
+          avatarUrl: friend.avatarUrl || '',
+          language: friend.language || 'en',
+        }
+      );
+      
+      // Navigate to home with conversation ID in URL
+      router.push(`/?chat=${conversationId}`);
+    } catch (error: any) {
+      console.error('Error creating conversation:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Could not start conversation.",
+      });
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   const handleDelete = async (friendId: string) => {
@@ -104,10 +144,14 @@ export function FriendList() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => handleMessage(friend.uid)}
+                onClick={() => handleMessage(friend)}
                 disabled={processingId === friend.uid}
               >
-                <MessageSquare className="h-4 w-4 mr-1" /> Message
+                {processingId === friend.uid ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <><MessageSquare className="h-4 w-4 mr-1" /> Message</>
+                )}
               </Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -116,11 +160,7 @@ export function FriendList() {
                     variant="destructive"
                     disabled={processingId === friend.uid}
                   >
-                    {processingId === friend.uid ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <><Trash2 className="h-4 w-4 mr-1" /> Delete</>
-                    )}
+                    <Trash2 className="h-4 w-4 mr-1" /> Delete
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>

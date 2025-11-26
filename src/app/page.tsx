@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from "@/firebase";
 import { useEffect } from "react";
 import dynamic from 'next/dynamic';
@@ -20,6 +20,8 @@ const ChatLayout = dynamic(() => import("@/components/chat/chat-layout"), {
 export default function Home() {
   const { user, loading } = useUser();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const chatId = searchParams.get('chat');
   
   useEffect(() => {
     if (!loading && !user) {
@@ -42,5 +44,9 @@ export default function Home() {
     return null;
   }
 
-  return <ChatLayout />;
+  return (
+    <div className="container mx-auto h-screen max-w-6xl p-0">
+      <ChatLayout initialChatId={chatId} />
+    </div>
+  );
 }

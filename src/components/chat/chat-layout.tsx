@@ -4,23 +4,29 @@ import {
   SidebarProvider,
   Sidebar,
   SidebarInset,
-  useSidebar
 } from "@/components/ui/sidebar";
 import { ChatSidebar } from "@/components/chat/chat-sidebar";
 import { ChatArea } from "@/components/chat/chat-area";
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-export default function ChatLayout() {
-  const [selectedChatId, setSelectedChatId] = React.useState<string | null>(null);
+interface ChatLayoutProps {
+  initialChatId?: string | null;
+}
+
+export default function ChatLayout({ initialChatId }: ChatLayoutProps) {
+  const [selectedChatId, setSelectedChatId] = React.useState<string | null>(initialChatId || null);
   const isMobile = useIsMobile();
+
+  // Update selected chat when initialChatId changes
+  React.useEffect(() => {
+    if (initialChatId) {
+      setSelectedChatId(initialChatId);
+    }
+  }, [initialChatId]);
 
   const handleChatSelect = (chatId: string) => {
     setSelectedChatId(chatId);
-    if (isMobile) {
-      // In mobile, selecting a chat should feel like opening a new screen.
-      // We can achieve this by managing a state here or using the sidebar's mobile behavior.
-    }
   };
 
   const handleBack = () => {
