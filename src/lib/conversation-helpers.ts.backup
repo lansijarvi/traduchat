@@ -108,90 +108,53 @@ export async function sendMessage(
   if (!conversationSnap.exists()) {
     throw new Error('Conversation not found');
   }
-  
+
   const conversation = conversationSnap.data();
   const receiverId = conversation.participants?.find((id: string) => id !== senderId);
   
   let translatedText: string | undefined;
-  let detectedLanguage: string | undefined;
-  let englishVersion: string | undefined;
-  let spanishVersion: string | undefined;
   
   if (receiverId && text) {
-    // Get sender's translation mode
-    const senderRef = doc(db, 'users', senderId);
-    const senderSnap = await getDoc(senderRef);
-    const senderData = senderSnap.exists() ? senderSnap.data() : {};
-    const translationMode = senderData.translationMode || 'smart'; // Default to smart
-    
-    // Get receiver's language
     const receiverRef = doc(db, 'users', receiverId);
     const receiverSnap = await getDoc(receiverRef);
     const receiverLanguage = receiverSnap.exists() ? (receiverSnap.data().language || 'en') : 'en';
-    
-    console.log('[Translation Debug] Translation mode:', {
-      mode: translationMode,
+
+    console.log('[Translation Debug] Starting translation check:', {
       senderId,
       receiverId,
       senderLanguage,
       receiverLanguage,
+      textLength: text.length,
+      needsTranslation: senderLanguage !== receiverLanguage
     });
-    
-    // TIER 1: Profile-Based (simple translation based on profile)
-    if (translationMode === 'profile') {
-      if (senderLanguage !== receiverLanguage) {
-        try {
-          const translationResult = await translateMessage({
-            text,
-            sourceLanguage: senderLanguage,
-            targetLanguage: receiverLanguage,
-          });
-          translatedText = translationResult.translatedText;
-          console.log('[Tier 1] Translated:', { from: senderLanguage, to: receiverLanguage });
-        } catch (error) {
-          console.error('[Tier 1] Translation failed:', error);
-        }
-      }
-    }
-    
-    // TIER 2: Smart Learning (detect language, translate to both)
-    else if (translationMode === 'smart' || translationMode === 'pro') {
+
+    if (senderLanguage !== receiverLanguage) {
       try {
-        // Detect what language was actually typed
-        detectedLanguage = await detectLanguage(text);
-        console.log('[Smart Learning] Detected language:', detectedLanguage);
-        
-        // Always create BOTH English and Spanish versions
-        if (detectedLanguage === 'en') {
-          englishVersion = text;
-          // Translate to Spanish
-          const esResult = await translateMessage({
-            text,
-            sourceLanguage: 'en',
-            targetLanguage: 'es',
-          });
-          spanishVersion = esResult.translatedText;
-        } else if (detectedLanguage === 'es') {
-          spanishVersion = text;
-          // Translate to English
-          const enResult = await translateMessage({
-            text,
-            sourceLanguage: 'es',
-            targetLanguage: 'en',
-          });
-          englishVersion = enResult.translatedText;
-        }
-        
-        // Set translatedText based on receiver's language
-        translatedText = receiverLanguage === 'en' ? englishVersion : spanishVersion;
-        
-        console.log('[Smart Learning] Both versions created:', {
-          english: englishVersion?.substring(0, 30),
-          spanish: spanishVersion?.substring(0, 30),
+        console.log('[Translation Debug] Calling translateMessage API...');
+        const translationResult = await translateMessage({
+          text,
+          sourceLanguage: senderLanguage,
+          targetLanguage: receiverLanguage,
         });
-      } catch (error) {
-        console.error('[Smart Learning] Translation failed:', error);
+        console.log('[Translation Debug] Translation successful:', {
+          originalText: text,
+          translatedText: translationResult.translatedText,
+          sourceLanguage: senderLanguage,
+          targetLanguage: receiverLanguage
+        });
+        translatedText = translationResult.translatedText;
+      } catch (error: any) {
+        console.error('[Translation Debug] Translation FAILED:', {
+          error: error,
+          errorMessage: error?.message,
+          errorStack: error?.stack,
+          senderLanguage,
+          receiverLanguage,
+          text
+        });
       }
+    } else {
+      console.log('[Translation Debug] No translation needed - same language');
     }
   }
   
@@ -204,20 +167,11 @@ export async function sendMessage(
     read: false,
   };
   
-  // Add translation fields
   if (translatedText) {
+    console.log('[Translation Debug] Adding translatedText to message:', translatedText);
     messageData.translatedText = translatedText;
-  }
-  
-  // Add Smart Learning fields
-  if (detectedLanguage) {
-    messageData.detectedLanguage = detectedLanguage;
-  }
-  if (englishVersion) {
-    messageData.englishVersion = englishVersion;
-  }
-  if (spanishVersion) {
-    messageData.spanishVersion = spanishVersion;
+  } else {
+    console.log('[Translation Debug] No translatedText to add');
   }
   
   if (media && media.length > 0) {
@@ -228,33 +182,20 @@ export async function sendMessage(
     messageData.linkPreview = linkPreview;
   }
   
-  await addDoc(messagesRef, messageData);
+  console.log('[Translation Debug] Saving message to Firestore:', {
+    hasTranslatedText: !!translatedText,
+    messageData: { ...messageData, text: `${text.substring(0, 20)}...` }
+  });
   
+  await addDoc(messagesRef, messageData);
+
   const lastMessageText = text || (media && media.length > 0 ? '📎 Attachment' : '🔗 Link');
+  
   await setDoc(conversationRef, {
     lastMessage: lastMessageText,
     lastMessageTimestamp: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }, { merge: true });
-}
-
-// Simple language detection function
-async function detectLanguage(text: string): Promise<'en' | 'es'> {
-  // Simple heuristic: count common words
-  const spanishWords = ['el', 'la', 'los', 'las', 'un', 'una', 'de', 'que', 'y', 'es', 'en', 'por', 'para', 'con', 'no', 'se', 'su', 'como', 'esta', 'más', 'pero', 'sus', 'al', 'lo'];
-  const englishWords = ['the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i', 'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at', 'this', 'but', 'his', 'by', 'from'];
-  
-  const words = text.toLowerCase().split(/\s+/);
-  let spanishScore = 0;
-  let englishScore = 0;
-  
-  words.forEach(word => {
-    if (spanishWords.includes(word)) spanishScore++;
-    if (englishWords.includes(word)) englishScore++;
-  });
-  
-  // Default to English if unclear
-  return spanishScore > englishScore ? 'es' : 'en';
 }
 
 export async function createConversation(

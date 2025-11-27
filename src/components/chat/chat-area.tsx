@@ -27,6 +27,7 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [currentUserLanguage, setCurrentUserLanguage] = useState<string>("en");
 
   useEffect(() => {
     if (!db || !chatId) {
@@ -43,7 +44,7 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
             return;
         }
 
-        const otherUserId = conv.participants.find(p => p !== user?.uid);
+        const otherUserId = conv.participants.find((p: string) => p !== user?.uid);
         const otherUserDetails = conv.participantDetails[otherUserId];
 
         setConversation({
@@ -173,7 +174,7 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
           language={conversation.otherUserLanguage}
         />
       )}
-      <ChatMessageList messages={messages} currentUserId={user?.uid || ""} />
+      <ChatMessageList messages={messages} currentUserId={user?.uid || ""} currentUserLanguage={currentUserLanguage} />
       <ChatInput onSendMessage={handleSendMessage} />
     </div>
   );

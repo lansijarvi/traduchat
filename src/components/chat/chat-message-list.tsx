@@ -13,6 +13,11 @@ export interface Message {
   content: string;
   originalContent?: string;
   wasTranslated?: boolean;
+  detectedLanguage?: string;
+  senderLanguage?: string;
+  receiverLanguage?: string;
+  englishVersion?: string;
+  spanishVersion?: string;
   translatedContent?: string;
   timestamp: Date;
   senderName?: string;
@@ -23,10 +28,11 @@ export interface Message {
 
 interface ChatMessageListProps {
   messages: Message[];
+  currentUserLanguage?: string;
   currentUserId: string;
 }
 
-export function ChatMessageList({ messages, currentUserId }: ChatMessageListProps) {
+export function ChatMessageList({ messages, currentUserId, currentUserLanguage }: ChatMessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showingTranslated, setShowingTranslated] = useState<string | null>(null);
@@ -68,16 +74,34 @@ export function ChatMessageList({ messages, currentUserId }: ChatMessageListProp
             
             let displayContent = message.content;
             let isShowingAlternate = false;
+            let hasTranslation = false;
             
-            if (!isOwn && message.wasTranslated) {
+            // Smart Learning mode: Use englishVersion/spanishVersion
+            if (message.englishVersion && message.spanishVersion) {
+              const userLang = currentUserLanguage || 'en';
+              
+              if (userLang === 'en') {
+                // English user: show English by default, hover shows Spanish
+                displayContent = isShowingTranslated ? message.spanishVersion : message.englishVersion;
+              } else {
+                // Spanish user: show Spanish by default, hover shows English
+                displayContent = isShowingTranslated ? message.englishVersion : message.spanishVersion;
+              }
+              isShowingAlternate = isShowingTranslated;
+              hasTranslation = true;
+            }
+            // Legacy Profile-Based mode
+            else if (!isOwn && message.wasTranslated) {
               displayContent = isShowingTranslated ? message.originalContent! : message.content;
               isShowingAlternate = isShowingTranslated;
+              hasTranslation = true;
             } else if (isOwn && message.translatedContent) {
               displayContent = isShowingTranslated ? message.translatedContent : message.content;
               isShowingAlternate = isShowingTranslated;
+              hasTranslation = true;
+            } else {
+              hasTranslation = false;
             }
-
-            const hasTranslation = (!isOwn && message.wasTranslated) || (isOwn && message.translatedContent);
 
             return (
               <div

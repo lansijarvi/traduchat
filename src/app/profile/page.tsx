@@ -201,10 +201,11 @@ export default function ProfilePage() {
       const docSnap = await getDoc(userRef);
       
       
+      const avatarUrl = values.useGoogleAvatar ? user.photoURL : customAvatarUrl;
+
       const userData = {
         username: values.username.toLowerCase(),
         language: values.language,
-        translationMode: values.translationMode || "smart",
         translationMode: values.translationMode || "smart",
         title: values.title || "",
         bio: values.bio || "",
