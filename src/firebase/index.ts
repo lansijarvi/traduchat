@@ -22,6 +22,11 @@ export function useFirestore(): Firestore | null {
   return firebase?.db || null;
 }
 
+export function useStorage(): FirebaseStorage | null {
+  const firebase = useFirebaseClient();
+  return firebase?.storage || null;
+}
+
 export function useFirebaseApp(): FirebaseApp | null {
   const firebase = useFirebaseClient();
   return firebase?.app || null;

@@ -8,7 +8,9 @@ import { ChatInput } from "@/components/chat/chat-input";
 import { MessageSquare, Loader2 } from "lucide-react";
 import { 
   sendMessage, 
-  getConversationById 
+  getConversationById,
+  type MediaAttachment,
+  type LinkPreview
 } from "@/lib/conversation-helpers";
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -26,7 +28,6 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
   const [conversation, setConversation] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  // Load conversation details
   useEffect(() => {
     if (!db || !chatId) {
       setConversation(null);
@@ -64,7 +65,6 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
       .finally(() => setLoading(false));
   }, [db, chatId, user]);
 
-  // Real-time messages listener
   useEffect(() => {
     if (!db || !chatId || !conversation) {
       setMessages([]);
@@ -83,21 +83,32 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
           const senderDetails = conversation.participantDetails[senderId];
           const isCurrentUser = senderId === user?.uid;
 
-          // Show translated text if available and user is receiver
           let contentToShow = data.text;
+          let originalContent = data.text;
+          let translatedContent = data.translatedText;
+          let wasTranslated = false;
+
           if (!isCurrentUser && data.translatedText) {
             contentToShow = data.translatedText;
+            originalContent = data.text;
+            wasTranslated = true;
+          } else if (isCurrentUser && data.translatedText) {
+            contentToShow = data.text;
+            translatedContent = data.translatedText;
           }
 
           return {
             id: doc.id,
             senderId: senderId,
             content: contentToShow,
-            originalContent: data.text,
-            wasTranslated: !isCurrentUser && !!data.translatedText,
+            originalContent: originalContent,
+            translatedContent: translatedContent,
+            wasTranslated: wasTranslated,
             timestamp: data.timestamp?.toDate() || new Date(),
             senderName: senderDetails?.displayName,
             senderAvatar: senderDetails?.avatarUrl,
+            media: data.media || undefined,
+            linkPreview: data.linkPreview || undefined,
           };
         });
         setMessages(msgs);
@@ -115,14 +126,14 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
     return () => unsubscribe();
   }, [db, chatId, conversation, user?.uid, toast]);
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, media?: MediaAttachment[], linkPreview?: LinkPreview) => {
     if (!db || !user || !chatId) return;
 
     try {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const userLanguage = userDoc.exists() ? (userDoc.data().language || 'en') : 'en';
       
-      await sendMessage(db, chatId, user.uid, content, userLanguage);
+      await sendMessage(db, chatId, user.uid, content, userLanguage, media, linkPreview);
     } catch (error: any) {
       console.error("Error sending message:", error);
       toast({

@@ -1,4 +1,3 @@
-
 import { 
   collection, 
   addDoc, 
@@ -31,6 +30,21 @@ export interface ConversationData {
   lastMessageTimestamp: Date;
 }
 
+export interface MediaAttachment {
+  type: 'image' | 'video' | 'file';
+  url: string;
+  name: string;
+  size?: number;
+  thumbnail?: string;
+}
+
+export interface LinkPreview {
+  url: string;
+  title: string;
+  description: string;
+  image: string | null;
+}
+
 export interface MessageData {
   id: string;
   text: string;
@@ -39,6 +53,8 @@ export interface MessageData {
   senderLanguage: 'en' | 'es';
   timestamp: Date;
   read: boolean;
+  media?: MediaAttachment[];
+  linkPreview?: LinkPreview;
 }
 
 export async function getConversationById(db: Firestore, conversationId: string): Promise<any> {
@@ -52,7 +68,6 @@ export async function getConversationById(db: Firestore, conversationId: string)
     return { id: conversationSnap.id, ...data };
 }
 
-// Get user conversations
 export async function getUserConversations(db: Firestore, userId: string): Promise<ConversationData[]> {
   const conversationsRef = collection(db, 'conversations');
   const q = query(
@@ -78,13 +93,14 @@ export async function getUserConversations(db: Firestore, userId: string): Promi
   });
 }
 
-// Send message with automatic translation
 export async function sendMessage(
   db: Firestore,
   conversationId: string,
   senderId: string,
   text: string,
-  senderLanguage: 'en' | 'es'
+  senderLanguage: 'en' | 'es',
+  media?: MediaAttachment[],
+  linkPreview?: LinkPreview
 ): Promise<void> {
   const conversationRef = doc(db, 'conversations', conversationId);
   const conversationSnap = await getDoc(conversationRef);
@@ -98,22 +114,47 @@ export async function sendMessage(
   
   let translatedText: string | undefined;
   
-  if (receiverId) {
+  if (receiverId && text) {
     const receiverRef = doc(db, 'users', receiverId);
     const receiverSnap = await getDoc(receiverRef);
     const receiverLanguage = receiverSnap.exists() ? (receiverSnap.data().language || 'en') : 'en';
 
+    console.log('[Translation Debug] Starting translation check:', {
+      senderId,
+      receiverId,
+      senderLanguage,
+      receiverLanguage,
+      textLength: text.length,
+      needsTranslation: senderLanguage !== receiverLanguage
+    });
+
     if (senderLanguage !== receiverLanguage) {
       try {
-        const translation = await translateMessage({
+        console.log('[Translation Debug] Calling translateMessage API...');
+        const translationResult = await translateMessage({
           text,
           sourceLanguage: senderLanguage,
           targetLanguage: receiverLanguage,
         });
-        translatedText = translation.translatedText;
-      } catch (error) {
-        console.error('Translation failed:', error);
+        console.log('[Translation Debug] Translation successful:', {
+          originalText: text,
+          translatedText: translationResult.translatedText,
+          sourceLanguage: senderLanguage,
+          targetLanguage: receiverLanguage
+        });
+        translatedText = translationResult.translatedText;
+      } catch (error: any) {
+        console.error('[Translation Debug] Translation FAILED:', {
+          error: error,
+          errorMessage: error?.message,
+          errorStack: error?.stack,
+          senderLanguage,
+          receiverLanguage,
+          text
+        });
       }
+    } else {
+      console.log('[Translation Debug] No translation needed - same language');
     }
   }
   
@@ -126,21 +167,37 @@ export async function sendMessage(
     read: false,
   };
   
-  // Only add translatedText if it exists
   if (translatedText) {
+    console.log('[Translation Debug] Adding translatedText to message:', translatedText);
     messageData.translatedText = translatedText;
+  } else {
+    console.log('[Translation Debug] No translatedText to add');
   }
+  
+  if (media && media.length > 0) {
+    messageData.media = media;
+  }
+  
+  if (linkPreview) {
+    messageData.linkPreview = linkPreview;
+  }
+  
+  console.log('[Translation Debug] Saving message to Firestore:', {
+    hasTranslatedText: !!translatedText,
+    messageData: { ...messageData, text: `${text.substring(0, 20)}...` }
+  });
   
   await addDoc(messagesRef, messageData);
 
+  const lastMessageText = text || (media && media.length > 0 ? '📎 Attachment' : '🔗 Link');
+  
   await setDoc(conversationRef, {
-    lastMessage: text,
+    lastMessage: lastMessageText,
     lastMessageTimestamp: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }, { merge: true });
 }
 
-// Create a new conversation
 export async function createConversation(
   db: Firestore,
   participant1Id: string,
