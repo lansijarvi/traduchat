@@ -4,8 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { Languages, ExternalLink, Download, File } from "lucide-react";
+import { Languages, ExternalLink, Download, File, Trash2 } from "lucide-react";
 import type { MediaAttachment, LinkPreview } from "@/lib/conversation-helpers";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export interface Message {
   id: string;
@@ -27,16 +38,19 @@ export interface Message {
 }
 
 interface ChatMessageListProps {
+  onDeleteMessage?: (messageId: string) => void;
   messages: Message[];
   currentUserLanguage?: string;
   currentUserId: string;
 }
 
-export function ChatMessageList({ messages, currentUserId, currentUserLanguage }: ChatMessageListProps) {
+export function ChatMessageList({ messages, currentUserId, currentUserLanguage, onDeleteMessage }: ChatMessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showingTranslated, setShowingTranslated] = useState<string | null>(null);
   const [fullscreenMedia, setFullscreenMedia] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -225,7 +239,7 @@ export function ChatMessageList({ messages, currentUserId, currentUserLanguage }
                         className={cn(
                           "rounded-lg px-4 py-2 relative group",
                           isOwn
-                            ? "bg-primary text-primary-foreground"
+                            ? "bg-message-sender text-[#001F3F]"
                             : "bg-muted"
                         )}
                         onMouseEnter={() => hasTranslation && setShowingTranslated(message.id)}
@@ -244,6 +258,19 @@ export function ChatMessageList({ messages, currentUserId, currentUserLanguage }
                           </div>
                         )}
                         <p className="text-sm whitespace-pre-wrap break-words">
+                        {isOwn && onDeleteMessage && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMessageToDelete(message.id);
+                              setDeleteDialogOpen(true);
+                            }}
+                            className="absolute -top-2 -left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
+                            aria-label="Delete message"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
                           {displayContent}
                         </p>
                         {hasTranslation && (
@@ -290,6 +317,31 @@ export function ChatMessageList({ messages, currentUserId, currentUserLanguage }
           </button>
         </div>
       )}
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete message?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your message.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (messageToDelete && onDeleteMessage) {
+                  onDeleteMessage(messageToDelete);
+                  setMessageToDelete(null);
+                }
+              }}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

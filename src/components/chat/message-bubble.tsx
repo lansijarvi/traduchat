@@ -80,7 +80,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         <div className={cn(
           'relative rounded-2xl p-3 text-sm shadow-md break-words',
           isMyMessage
-            ? 'bg-primary text-primary-foreground rounded-br-none'
+            ? 'bg-message-sender text-[#001F3F] rounded-br-none'
             : 'bg-card text-card-foreground rounded-bl-none'
         )}>
           {currentText}

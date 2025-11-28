@@ -9,7 +9,7 @@ export default function LoginPage() {
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary shadow-lg">
             <Globe className="h-8 w-8 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">Welcome back to TraduChat</h1>
+          <h1 className="text-3xl font-bold text-foreground">Welcome back to mychatnow</h1>
           <p className="mt-2 text-muted-foreground">Sign in to connect and translate.</p>
         </div>
         <AuthForm mode="signin" />

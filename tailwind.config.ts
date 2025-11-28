@@ -65,6 +65,8 @@ export default {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
+        'lime-green': '#84CC16',
+        'message-sender': '#84CC16',
       },
       borderRadius: {
         lg: 'var(--radius)',

@@ -31,8 +31,41 @@ export function ChatInput({ onSendMessage }: ChatInputProps) {
   const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const storage = useStorage();
   const { toast } = useToast();
+
+  // Initialize audio context
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return () => {
+      audioContextRef.current?.close();
+    };
+  }, []);
+
+  // Play send sound
+  const playSendSound = () => {
+    if (!audioContextRef.current) return;
+    
+    const ctx = audioContextRef.current;
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    oscillator.frequency.setValueAtTime(600, ctx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.1);
+    oscillator.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+    
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.15);
+  };
 
   // Detect URLs in message and fetch preview
   React.useEffect(() => {
@@ -68,6 +101,14 @@ export function ChatInput({ onSendMessage }: ChatInputProps) {
 
   const handleSend = () => {
     if (message.trim() || attachments.length > 0) {
+      // Haptic feedback
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+      
+      // Send sound
+      playSendSound();
+      
       onSendMessage(message, attachments.length > 0 ? attachments : undefined, linkPreview || undefined);
       setMessage('');
       setAttachments([]);
@@ -272,7 +313,7 @@ export function ChatInput({ onSendMessage }: ChatInputProps) {
         <Button 
           onClick={handleSend} 
           size="icon" 
-          className="h-8 w-8 shrink-0 bg-cyan hover:bg-cyan/90"
+          className="h-8 w-8 shrink-0 bg-[#FF4500] hover:bg-[#FF4500]/90"
           disabled={!message.trim() && attachments.length === 0}
           aria-label="Send message"
         >

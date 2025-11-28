@@ -114,7 +114,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
         toast({
           title: "Account created!",
-          description: "Welcome to TraduChat!",
+          description: "Welcome to mychatnow!",
         });
         router.push("/");
       } else {
@@ -177,7 +177,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       toast({
         title: mode === "signup" ? "Account created!" : "Signed in!",
-        description: mode === "signup" ? "Welcome to TraduChat!" : "Welcome back!",
+        description: mode === "signup" ? "Welcome to mychatnow!" : "Welcome back!",
       });
       router.push("/");
     } catch (error: any) {

@@ -10,9 +10,11 @@ import {
   Search,
   Menu,
   ArrowLeft,
-  Languages
+  Languages,
+  BookOpen
 } from 'lucide-react';
 import { useSidebar } from "@/components/ui/sidebar";
+import { QuickPhrasesPanel } from "./quick-phrases-panel";
 
 interface ChatHeaderProps {
   name: string;
@@ -68,6 +70,7 @@ export function ChatHeader({ name, avatarUrl, status, language, onBack }: ChatHe
         </div>
       </div>
       <div className="flex items-center gap-0.5 shrink-0">
+        <QuickPhrasesPanel />
         <Button variant="ghost" size="icon" className="h-7 w-7 hidden sm:flex">
           <Search className="h-3.5 w-3.5" />
         </Button>

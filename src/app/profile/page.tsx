@@ -74,7 +74,6 @@ const COUNTRIES = [
 const profileSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters").regex(/^[a-z0-9_.]+$/, "Username can only contain lowercase letters, numbers, underscores, and periods."),
   language: z.enum(["en", "es"]),
-  translationMode: z.enum(["profile", "smart", "pro"]).default("smart"),
   title: z.string().max(50, "Title must be 50 characters or less").optional(),
   bio: z.string().max(200, "Bio must be 200 characters or less").optional(),
   country: z.string().optional(),
@@ -122,7 +121,6 @@ export default function ProfilePage() {
           form.reset({
             username: data.username || "",
             language: data.language || "en",
-            translationMode: data.translationMode || "smart",
             title: data.title || "",
             bio: data.bio || "",
             country: data.country || "",
@@ -134,7 +132,6 @@ export default function ProfilePage() {
           form.reset({
             username: defaultUsername,
             language: "en",
-            translationMode: "smart",
             title: "",
             bio: "",
             country: "",
@@ -206,7 +203,6 @@ export default function ProfilePage() {
       const userData = {
         username: values.username.toLowerCase(),
         language: values.language,
-        translationMode: values.translationMode || "smart",
         title: values.title || "",
         bio: values.bio || "",
         country: values.country || "",
@@ -382,34 +378,6 @@ export default function ProfilePage() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="translationMode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Translation Mode</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || "smart"}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select mode" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="profile">📋 Profile-Based</SelectItem>
-                          <SelectItem value="smart">🎓 Smart Learning (Recommended)</SelectItem>
-                          <SelectItem value="pro">💎 Bilingual Pro</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        How messages are translated for learning
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="title"

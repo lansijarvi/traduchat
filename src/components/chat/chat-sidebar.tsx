@@ -12,7 +12,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Globe, LogOut, Search, Settings, User as UserIcon, Users, MessageSquare } from 'lucide-react';
+import { Globe, LogOut, Search, Settings, User as UserIcon, Users, MessageSquare, BookOpen } from 'lucide-react';
 import { getUserConversations, type ConversationData } from '@/lib/conversation-helpers';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +21,7 @@ import Link from 'next/link';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { QuickPhrasesPanel } from './quick-phrases-panel';
 
 interface ChatSidebarProps {
   onChatSelect: (chatId: string) => void;
@@ -62,7 +63,6 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
         fetchUserLanguage();
     }, [fetchUserLanguage]);
 
-
     const handleLanguageChange = async (newLanguage: 'en' | 'es') => {
         if (!db || !user) return;
         setUserLanguage(newLanguage);
@@ -78,90 +78,87 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
             toast({
                 variant: 'destructive',
                 title: 'Error',
-                description: 'Could not update your language preference.'
+                description: 'Failed to update language preference.'
             });
         }
     };
 
     const handleLogout = async () => {
       if (!auth) return;
-        try {
-            await signOut(auth);
-            toast({
-                title: "Logged Out",
-                description: "You have been signed out successfully.",
-            });
-            window.location.href = '/login';
-        } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Logout Error",
-                description: error.message || "Could not log out.",
-            });
-        }
-    }
+      try {
+        await signOut(auth);
+      } catch (error) {
+        console.error('Error signing out:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to sign out.',
+        });
+      }
+    };
 
     const allChats = conversations.map(conv => {
-        const otherUserId = conv.participants.find(p => p !== user?.uid);
-        const otherUserDetails = otherUserId ? conv.participantDetails[otherUserId] : null;
-        return {
-          id: conv.id,
-          otherUser: {
-            uid: otherUserId,
-            displayName: otherUserDetails?.displayName || 'Unknown User',
-            username: otherUserDetails?.username || 'unknown',
-            avatarUrl: otherUserDetails?.avatarUrl || '',
-          },
-          lastMessage: conv.lastMessage || 'Start chatting!',
-          lastMessageAt: conv.lastMessageTimestamp,
-        }
-      });
+      const otherUserId = conv.participants.find(p => p !== user?.uid);
+      const otherUserDetails = otherUserId ? conv.participantDetails[otherUserId] : null;
+      return {
+        id: conv.id,
+        lastMessage: conv.lastMessage,
+        lastMessageAt: conv.lastMessageTimestamp,
+        unreadCount: user?.uid ? (conv.unreadCount?.[user.uid] || 0) : 0,
+        otherUser: otherUserDetails ? {
+          displayName: otherUserDetails.displayName,
+          avatarUrl: otherUserDetails.avatarUrl || undefined,
+        } : null,
+      };
+    });
 
   return (
     <>
-      <SidebarHeader className="p-3 pb-2 border-b border-sidebar-border">
-        <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-                <Globe className="h-6 w-6 text-primary" />
-                <h1 className="text-lg font-bold">TraduChat</h1>
-            </div>
-            <Select value={userLanguage} onValueChange={handleLanguageChange}>
-                <SelectTrigger className="w-auto h-8 text-xs border-none bg-sidebar-accent">
-                    <SelectValue placeholder="Language" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="en">EN</SelectItem>
-                    <SelectItem value="es">ES</SelectItem>
-                </SelectContent>
-            </Select>
+      <SidebarHeader className="p-2">
+        <div className="flex items-center gap-2">
+          <Globe className="h-5 w-5" />
+          <h1 className="text-lg font-bold">MyChatNow</h1>
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Language:</span>
+          <Select value={userLanguage} onValueChange={handleLanguageChange}>
+            <SelectTrigger className="h-7 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="en">English</SelectItem>
+              <SelectItem value="es">Español</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </SidebarHeader>
       
-      <SidebarContent className="p-0">
-         <SidebarMenu className="p-2">
+      <SidebarContent>
+        <SidebarMenu className="px-2 space-y-1">
             <SidebarMenuItem>
-              <Button asChild variant="default" size="lg" className="w-full justify-start">
+              <Button asChild size="lg" className="w-full justify-start bg-background text-[#FFF5EE] border border-border hover:bg-[#003366] hover:text-[#FFF5EE]">
                   <Link href="/friends">
-                      <Users /> Friends & Requests
+                      <Users className="h-4 w-4 mr-2" /> Friends & Requests
                   </Link>
               </Button>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <Button asChild variant="secondary" size="lg" className="w-full justify-start">
+              <Button asChild size="lg" className="w-full justify-start bg-background text-[#FFF5EE] border border-border hover:bg-[#005B99] hover:text-[#FFF5EE]">
                   <Link href="/profile">
-                      <UserIcon /> Your Profile
+                      <UserIcon className="h-4 w-4 mr-2" /> Your Profile
                   </Link>
               </Button>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <QuickPhrasesPanel />
             </SidebarMenuItem>
         </SidebarMenu>
         
         <SidebarSeparator />
-
         <div className="p-2 flex items-center">
             <MessageSquare className="h-4 w-4 mr-2" />
             <h2 className="font-semibold text-sm">Chats</h2>
         </div>
-
         <SidebarMenu className="px-2">
           {loading ? (
             <div className="p-4 text-center text-sm text-muted-foreground">Loading...</div>
@@ -188,6 +185,11 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
                       <time className="text-[10px] text-muted-foreground whitespace-nowrap">
                           {chat.lastMessageAt ? formatDistanceToNow(chat.lastMessageAt, { addSuffix: true }) : ''}
                       </time>
+                      {chat.unreadCount > 0 && (
+                        <div className="mt-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#FF4500] text-[#FFF5EE] text-[10px] font-bold">
+                          {chat.unreadCount}
+                        </div>
+                      )}
                     </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

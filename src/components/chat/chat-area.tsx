@@ -9,10 +9,11 @@ import { MessageSquare, Loader2 } from "lucide-react";
 import { 
   sendMessage, 
   getConversationById,
+  deleteMessage,
   type MediaAttachment,
   type LinkPreview
 } from "@/lib/conversation-helpers";
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
 interface ChatAreaProps {
@@ -29,6 +30,7 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
   const [loading, setLoading] = useState(false);
   const [currentUserLanguage, setCurrentUserLanguage] = useState<string>("en");
 
+  // Load conversation details
   useEffect(() => {
     if (!db || !chatId) {
       setConversation(null);
@@ -40,20 +42,27 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
     getConversationById(db, chatId)
       .then((conv) => {
         if (!conv) {
-            setConversation(null);
-            return;
+          setConversation(null);
+          return;
         }
 
         const otherUserId = conv.participants.find((p: string) => p !== user?.uid);
         const otherUserDetails = conv.participantDetails[otherUserId];
 
         setConversation({
-            ...conv,
-            name: otherUserDetails?.displayName,
-            avatarUrl: otherUserDetails?.avatarUrl,
-            otherUserLanguage: otherUserDetails?.language || 'en',
+          ...conv,
+          name: otherUserDetails?.displayName,
+          avatarUrl: otherUserDetails?.avatarUrl,
+          otherUserLanguage: otherUserDetails?.language || 'en',
         });
 
+        // Mark conversation as read
+        if (user?.uid && db) {
+          const conversationRef = doc(db, "conversations", chatId);
+          updateDoc(conversationRef, {
+            ["unreadCount." + user.uid]: 0
+          }).catch(err => console.error("Error marking as read:", err));
+        }
       })
       .catch((error) => {
         console.error("Error loading conversation:", error);
@@ -66,6 +75,28 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
       .finally(() => setLoading(false));
   }, [db, chatId, user]);
 
+  // Listen to other user's profile for real-time language updates
+  useEffect(() => {
+    if (!db || !conversation) return;
+    
+    const otherUserId = conversation.participants?.find((p: string) => p !== user?.uid);
+    if (!otherUserId) return;
+    
+    const userRef = doc(db, "users", otherUserId);
+    const unsubscribe = onSnapshot(userRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const userData = snapshot.data();
+        setConversation((prev: any) => ({
+          ...prev,
+          otherUserLanguage: userData.language || "en",
+        }));
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [db, conversation?.participants, user?.uid]);
+
+  // Real-time messages listener
   useEffect(() => {
     if (!db || !chatId || !conversation) {
       setMessages([]);
@@ -146,6 +177,24 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
     }
   };
 
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!db || !chatId) return;
+    
+    try {
+      await deleteMessage(db, chatId, messageId);
+      toast({
+        title: "Message deleted",
+      });
+    } catch (error: any) {
+      console.error("Error deleting message:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to delete message",
+        description: error.message,
+      });
+    }
+  };
+
   if (!chatId) {
     return (
       <div className="hidden md:flex h-full flex-col items-center justify-center bg-background text-center text-muted-foreground p-8">
@@ -174,7 +223,12 @@ export function ChatArea({ chatId, onBack }: ChatAreaProps) {
           language={conversation.otherUserLanguage}
         />
       )}
-      <ChatMessageList messages={messages} currentUserId={user?.uid || ""} currentUserLanguage={currentUserLanguage} />
+      <ChatMessageList 
+        messages={messages} 
+        currentUserId={user?.uid || ""} 
+        onDeleteMessage={handleDeleteMessage}
+        currentUserLanguage={currentUserLanguage}
+      />
       <ChatInput onSendMessage={handleSendMessage} />
     </div>
   );

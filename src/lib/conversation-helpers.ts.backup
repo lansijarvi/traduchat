@@ -1,4 +1,5 @@
 import { 
+  deleteDoc, 
   collection, 
   addDoc, 
   query, 
@@ -8,14 +9,11 @@ import {
   serverTimestamp,
   doc,
   setDoc,
-  Timestamp,
   getDoc,
   updateDoc,
-  DocumentData,
-  FieldValue
 } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
-import { translateMessage, type TranslateMessageInput } from '@/ai/flows/real-time-translation';
+import { translateMessage } from "@/ai/flows/real-time-translation";
 
 export interface ConversationData {
   id: string;
@@ -28,6 +26,7 @@ export interface ConversationData {
   }>;
   lastMessage: string;
   lastMessageTimestamp: Date;
+  unreadCount?: Record<string, number>;
 }
 
 export interface MediaAttachment {
@@ -57,40 +56,54 @@ export interface MessageData {
   linkPreview?: LinkPreview;
 }
 
-export async function getConversationById(db: Firestore, conversationId: string): Promise<any> {
-    const conversationRef = doc(db, 'conversations', conversationId);
-    const conversationSnap = await getDoc(conversationRef);
-
-    if (!conversationSnap.exists()) {
-        return null;
-    }
-    const data = conversationSnap.data();
-    return { id: conversationSnap.id, ...data };
+export async function getConversationById(db: Firestore, conversationId: string) {
+  const conversationSnap = await getDoc(doc(db, 'conversations', conversationId));
+  if (!conversationSnap.exists()) return null;
+  return { id: conversationSnap.id, ...conversationSnap.data() };
 }
 
 export async function getUserConversations(db: Firestore, userId: string): Promise<ConversationData[]> {
-  const conversationsRef = collection(db, 'conversations');
   const q = query(
-    conversationsRef,
+    collection(db, 'conversations'),
     where('participants', 'array-contains', userId),
     orderBy('lastMessageTimestamp', 'desc')
   );
 
   return new Promise((resolve, reject) => {
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const conversations: ConversationData[] = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          lastMessageTimestamp: doc.data().lastMessageTimestamp?.toDate() || new Date(),
-        } as ConversationData));
-        unsubscribe();
-        resolve(conversations);
-      },
-      reject
-    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const conversations = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        lastMessageTimestamp: doc.data().lastMessageTimestamp?.toDate() || new Date(),
+      } as ConversationData));
+      unsubscribe();
+      resolve(conversations);
+    }, reject);
   });
+}
+
+async function getTranslation(
+  text: string,
+  senderLanguage: 'en' | 'es',
+  receiverId: string,
+  db: Firestore
+): Promise<string | undefined> {
+  const receiverSnap = await getDoc(doc(db, 'users', receiverId));
+  const receiverLanguage = receiverSnap.exists() ? (receiverSnap.data().language || 'en') : 'en';
+  
+  if (senderLanguage === receiverLanguage) return undefined;
+  
+  try {
+    const result = await translateMessage({
+      text,
+      sourceLanguage: senderLanguage,
+      targetLanguage: receiverLanguage,
+    });
+    return result.translatedText;
+  } catch (error) {
+    console.error('Translation failed:', error);
+    return undefined;
+  }
 }
 
 export async function sendMessage(
@@ -102,113 +115,54 @@ export async function sendMessage(
   media?: MediaAttachment[],
   linkPreview?: LinkPreview
 ): Promise<void> {
-  const conversationRef = doc(db, 'conversations', conversationId);
-  const conversationSnap = await getDoc(conversationRef);
+  const conversationSnap = await getDoc(doc(db, 'conversations', conversationId));
+  if (!conversationSnap.exists()) throw new Error('Conversation not found');
   
-  if (!conversationSnap.exists()) {
-    throw new Error('Conversation not found');
-  }
-
   const conversation = conversationSnap.data();
   const receiverId = conversation.participants?.find((id: string) => id !== senderId);
   
-  let translatedText: string | undefined;
-  
-  if (receiverId && text) {
-    const receiverRef = doc(db, 'users', receiverId);
-    const receiverSnap = await getDoc(receiverRef);
-    const receiverLanguage = receiverSnap.exists() ? (receiverSnap.data().language || 'en') : 'en';
+  const translatedText = receiverId && text 
+    ? await getTranslation(text, senderLanguage, receiverId, db)
+    : undefined;
 
-    console.log('[Translation Debug] Starting translation check:', {
-      senderId,
-      receiverId,
-      senderLanguage,
-      receiverLanguage,
-      textLength: text.length,
-      needsTranslation: senderLanguage !== receiverLanguage
-    });
-
-    if (senderLanguage !== receiverLanguage) {
-      try {
-        console.log('[Translation Debug] Calling translateMessage API...');
-        const translationResult = await translateMessage({
-          text,
-          sourceLanguage: senderLanguage,
-          targetLanguage: receiverLanguage,
-        });
-        console.log('[Translation Debug] Translation successful:', {
-          originalText: text,
-          translatedText: translationResult.translatedText,
-          sourceLanguage: senderLanguage,
-          targetLanguage: receiverLanguage
-        });
-        translatedText = translationResult.translatedText;
-      } catch (error: any) {
-        console.error('[Translation Debug] Translation FAILED:', {
-          error: error,
-          errorMessage: error?.message,
-          errorStack: error?.stack,
-          senderLanguage,
-          receiverLanguage,
-          text
-        });
-      }
-    } else {
-      console.log('[Translation Debug] No translation needed - same language');
-    }
-  }
-  
-  const messagesRef = collection(db, 'conversations', conversationId, 'messages');
   const messageData: any = {
-    text: text,
+    text,
     senderId,
     senderLanguage,
     timestamp: serverTimestamp(),
     read: false,
   };
-  
-  if (translatedText) {
-    console.log('[Translation Debug] Adding translatedText to message:', translatedText);
-    messageData.translatedText = translatedText;
-  } else {
-    console.log('[Translation Debug] No translatedText to add');
-  }
-  
-  if (media && media.length > 0) {
-    messageData.media = media;
-  }
-  
-  if (linkPreview) {
-    messageData.linkPreview = linkPreview;
-  }
-  
-  console.log('[Translation Debug] Saving message to Firestore:', {
-    hasTranslatedText: !!translatedText,
-    messageData: { ...messageData, text: `${text.substring(0, 20)}...` }
-  });
-  
-  await addDoc(messagesRef, messageData);
 
-  const lastMessageText = text || (media && media.length > 0 ? '📎 Attachment' : '🔗 Link');
+  if (translatedText) messageData.translatedText = translatedText;
+  if (media?.length) messageData.media = media;
+  if (linkPreview) messageData.linkPreview = linkPreview;
   
-  await setDoc(conversationRef, {
-    lastMessage: lastMessageText,
+  await addDoc(collection(db, 'conversations', conversationId, 'messages'), messageData);
+  
+  const lastMessage = text || (media?.length ? '📎 Attachment' : '🔗 Link');
+  const updateData: any = {
+    lastMessage,
     lastMessageTimestamp: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  }, { merge: true });
+  };
+  
+  if (receiverId) {
+    updateData[`unreadCount.${receiverId}`] = (conversation.unreadCount?.[receiverId] || 0) + 1;
+  }
+  
+  await setDoc(doc(db, 'conversations', conversationId), updateData, { merge: true });
 }
 
 export async function createConversation(
   db: Firestore,
   participant1Id: string,
   participant2Id: string,
-  participant1Details: { username: string; displayName: string; avatarUrl?: string, language?: 'en' | 'es' },
-  participant2Details: { username: string; displayName: string; avatarUrl?: string, language?: 'en' | 'es' }
+  participant1Details: { username: string; displayName: string; avatarUrl?: string; language?: 'en' | 'es' },
+  participant2Details: { username: string; displayName: string; avatarUrl?: string; language?: 'en' | 'es' }
 ): Promise<string> {
-  const conversationId = `${[participant1Id, participant2Id].sort().join('_')}`;
-  const conversationRef = doc(db, 'conversations', conversationId);
+  const conversationId = [participant1Id, participant2Id].sort().join('_');
 
-  await setDoc(conversationRef, {
+  await setDoc(doc(db, 'conversations', conversationId), {
     participants: [participant1Id, participant2Id],
     participantDetails: {
       [participant1Id]: {
@@ -234,38 +188,31 @@ export async function createConversation(
 }
 
 export async function acceptFriendRequest(db: Firestore, friendshipId: string, currentUserId: string): Promise<string> {
-  const friendshipRef = doc(db, 'friendships', friendshipId);
-  const friendshipSnap = await getDoc(friendshipRef);
-
+  const friendshipSnap = await getDoc(doc(db, 'friendships', friendshipId));
   if (!friendshipSnap.exists()) throw new Error('Friendship not found');
 
   const friendship = friendshipSnap.data();
   if (friendship.toUserId !== currentUserId) throw new Error('Not authorized to accept this request.');
 
-  await updateDoc(friendshipRef, {
+  await updateDoc(doc(db, 'friendships', friendshipId), {
     status: 'accepted',
     acceptedAt: serverTimestamp(),
   });
 
-  const fromUserId = friendship.fromUserId;
-  const toUserId = friendship.toUserId;
-
   const [fromUserDoc, toUserDoc] = await Promise.all([
-    getDoc(doc(db, 'users', fromUserId)),
-    getDoc(doc(db, 'users', toUserId)),
+    getDoc(doc(db, 'users', friendship.fromUserId)),
+    getDoc(doc(db, 'users', friendship.toUserId)),
   ]);
 
-  if (!fromUserDoc.exists() || !toUserDoc.exists()) {
-    throw new Error('User not found');
-  }
+  if (!fromUserDoc.exists() || !toUserDoc.exists()) throw new Error('User not found');
 
   const fromUserData = fromUserDoc.data();
   const toUserData = toUserDoc.data();
 
-  const conversationId = await createConversation(
+  return createConversation(
     db,
-    fromUserId,
-    toUserId,
+    friendship.fromUserId,
+    friendship.toUserId,
     {
       username: fromUserData.username,
       displayName: fromUserData.displayName,
@@ -279,6 +226,44 @@ export async function acceptFriendRequest(db: Firestore, friendshipId: string, c
       language: toUserData.language
     }
   );
+}
 
-  return conversationId;
+export async function deleteMessage(
+  db: Firestore,
+  conversationId: string,
+  messageId: string
+): Promise<void> {
+  await deleteDoc(doc(db, 'conversations', conversationId, 'messages', messageId));
+}
+
+export async function editMessage(
+  db: Firestore,
+  conversationId: string,
+  messageId: string,
+  newText: string,
+  senderLanguage: 'en' | 'es'
+): Promise<void> {
+  const conversationSnap = await getDoc(doc(db, 'conversations', conversationId));
+  if (!conversationSnap.exists()) throw new Error('Conversation not found');
+
+  const messageSnap = await getDoc(doc(db, 'conversations', conversationId, 'messages', messageId));
+  if (!messageSnap.exists()) throw new Error('Message not found');
+
+  const conversation = conversationSnap.data();
+  const messageData = messageSnap.data();
+  const receiverId = conversation.participants?.find((id: string) => id !== messageData.senderId);
+  
+  const translatedText = receiverId && newText
+    ? await getTranslation(newText, senderLanguage, receiverId, db)
+    : undefined;
+
+  const updateData: any = {
+    text: newText,
+    edited: true,
+    editedAt: serverTimestamp(),
+  };
+
+  if (translatedText) updateData.translatedText = translatedText;
+
+  await updateDoc(doc(db, 'conversations', conversationId, 'messages', messageId), updateData);
 }
