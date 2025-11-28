@@ -220,7 +220,7 @@ export function UserProfileModal({ open, onOpenChange, user }: UserProfileModalP
                   )}
                   {user.gallery?.photos && user.gallery.photos.length > 0 ? (
                     <div className="grid grid-cols-3 gap-2">
-                      {user.gallery.photos.map((photo, index) => (
+                      {(user.gallery?.photos || []).map((photo, index) => (
                         <div
                           key={index}
                           className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
@@ -274,7 +274,7 @@ export function UserProfileModal({ open, onOpenChange, user }: UserProfileModalP
                   )}
                   {user.gallery?.videos && user.gallery.videos.length > 0 ? (
                     <div className="space-y-4">
-                      {user.gallery.videos.map((video, index) => (
+                      {(user.gallery?.videos || []).map((video, index) => (
                         <div key={index} className="rounded-lg overflow-hidden bg-black">
                           <video
                             src={video}
