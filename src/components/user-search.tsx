@@ -122,7 +122,7 @@ export function UserSearch() {
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Input
-              placeholder="Search username..."
+              placeholder="Search by username, email, or name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
