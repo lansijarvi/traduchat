@@ -22,6 +22,7 @@ import { useAuth, useUser, useFirestore } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { QuickPhrasesPanel } from './quick-phrases-panel';
+import { UserProfileModal } from "@/components/user-profile-modal";
 
 interface ChatSidebarProps {
   onChatSelect: (chatId: string) => void;
@@ -36,6 +37,8 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
     const [conversations, setConversations] = useState<ConversationData[]>([]);
     const [loading, setLoading] = useState(true);
     const [userLanguage, setUserLanguage] = useState('en');
+    const [profileModalOpen, setProfileModalOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<any>(null);
 
     useEffect(() => {
       if (!db || !user) return;
@@ -83,6 +86,31 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
         }
     };
 
+    const handleAvatarClick = async (userId: string) => {
+        if (!db) return;
+        try {
+            const userDoc = await getDoc(doc(db, 'users', userId));
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                setSelectedUser({
+                    uid: userId,
+                    displayName: userData.displayName || 'Unknown User',
+                    username: userData.username,
+                    bio: userData.bio,
+                    avatarUrl: userData.avatarUrl,
+                    country: userData.country,
+                    language: userData.language,
+                    createdAt: userData.createdAt?.toDate(),
+                    gallery: userData.gallery || { photos: [], videos: [] },
+                });
+                setProfileModalOpen(true);
+            }
+        } catch (error) {
+            console.error('Error fetching user profile:', error);
+        }
+    };
+
+
     const handleLogout = async () => {
       if (!auth) return;
       try {
@@ -105,6 +133,7 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
         lastMessage: conv.lastMessage,
         lastMessageAt: conv.lastMessageTimestamp,
         unreadCount: user?.uid ? (conv.unreadCount?.[user.uid] || 0) : 0,
+        otherUserId: otherUserId,
         otherUser: otherUserDetails ? {
           displayName: otherUserDetails.displayName,
           avatarUrl: otherUserDetails.avatarUrl || undefined,
@@ -173,7 +202,13 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
                     isActive={selectedChatId === chat.id}
                     className="h-auto p-2 justify-start hover:bg-sidebar-accent"
                   >
-                    <Avatar className="h-8 w-8 shrink-0">
+                    <Avatar 
+                      className="h-8 w-8 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (chat.otherUserId) handleAvatarClick(chat.otherUserId);
+                      }}
+                    >
                       <AvatarImage src={chat.otherUser.avatarUrl} alt={chat.otherUser.displayName} />
                       <AvatarFallback className="text-xs">{(chat.otherUser?.displayName || "?")[0]}</AvatarFallback>
                     </Avatar>
@@ -213,6 +248,15 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
             </Button>
         </div>
       </SidebarFooter>
+
+      {selectedUser && (
+        <UserProfileModal
+          open={profileModalOpen}
+          onOpenChange={setProfileModalOpen}
+          user={selectedUser}
+        />
+      )}
+
     </>
   );
 }

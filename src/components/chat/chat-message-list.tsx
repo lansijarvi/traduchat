@@ -17,6 +17,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { UserProfileModal } from "@/components/user-profile-modal";
+import { useFirestore } from "@/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 export interface Message {
   id: string;
@@ -51,6 +54,9 @@ export function ChatMessageList({ messages, currentUserId, currentUserLanguage, 
   const [fullscreenMedia, setFullscreenMedia] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const db = useFirestore();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -59,6 +65,31 @@ export function ChatMessageList({ messages, currentUserId, currentUserLanguage, 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const handleAvatarClick = async (userId: string) => {
+    if (!db) return;
+    console.log("Avatar clicked for user:", userId);
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setSelectedUser({
+          uid: userId,
+          displayName: userData.displayName || 'Unknown User',
+          username: userData.username,
+          bio: userData.bio,
+          avatarUrl: userData.avatarUrl,
+          country: userData.country,
+          language: userData.language,
+          createdAt: userData.createdAt?.toDate(),
+          gallery: userData.gallery || { photos: [], videos: [] },
+        });
+        setProfileModalOpen(true);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return '';
@@ -126,7 +157,10 @@ export function ChatMessageList({ messages, currentUserId, currentUserLanguage, 
                 )}
               >
                 {!isOwn && (
-                  <Avatar className="h-8 w-8 shrink-0">
+                  <Avatar 
+                    className="h-8 w-8 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => handleAvatarClick(message.senderId)}
+                  >
                     <AvatarImage src={message.senderAvatar} />
                     <AvatarFallback>
                       {message.senderName?.[0]?.toUpperCase() || "?"}
@@ -342,6 +376,16 @@ export function ChatMessageList({ messages, currentUserId, currentUserLanguage, 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* User Profile Modal */}
+      {selectedUser && (
+        <UserProfileModal
+          open={profileModalOpen}
+          onOpenChange={setProfileModalOpen}
+          user={selectedUser}
+        />
+      )}
+
     </>
   );
 }
