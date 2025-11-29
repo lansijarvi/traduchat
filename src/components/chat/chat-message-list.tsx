@@ -121,27 +121,10 @@ export function ChatMessageList({ messages, currentUserId, currentUserLanguage, 
             let isShowingAlternate = false;
             let hasTranslation = false;
             
-            // Smart Learning mode: Use englishVersion/spanishVersion
-            if (message.englishVersion && message.spanishVersion) {
-              const userLang = currentUserLanguage || 'en';
-              
-              if (userLang === 'en') {
-                // English user: show English by default, hover shows Spanish
-                displayContent = isShowingTranslated ? message.spanishVersion : message.englishVersion;
-              } else {
-                // Spanish user: show Spanish by default, hover shows English
-                displayContent = isShowingTranslated ? message.englishVersion : message.spanishVersion;
-              }
-              isShowingAlternate = isShowingTranslated;
-              hasTranslation = true;
-            }
-            // Legacy Profile-Based mode
-            else if (!isOwn && message.wasTranslated) {
-              displayContent = isShowingTranslated ? message.originalContent! : message.content;
-              isShowingAlternate = isShowingTranslated;
-              hasTranslation = true;
-            } else if (isOwn && message.translatedContent) {
-              displayContent = isShowingTranslated ? message.translatedContent : message.content;
+            // Current translation system: messages have translatedText field
+            if (message.translatedText) {
+              // Show original by default, hover shows translation
+              displayContent = isShowingTranslated ? message.translatedText : message.content;
               isShowingAlternate = isShowingTranslated;
               hasTranslation = true;
             } else {
@@ -291,7 +274,6 @@ export function ChatMessageList({ messages, currentUserId, currentUserLanguage, 
                             </div>
                           </div>
                         )}
-                        <p className="text-sm whitespace-pre-wrap break-words">
                         {isOwn && onDeleteMessage && (
                           <button
                             onClick={(e) => {
@@ -305,6 +287,7 @@ export function ChatMessageList({ messages, currentUserId, currentUserLanguage, 
                             <Trash2 className="h-3 w-3" />
                           </button>
                         )}
+                        <p className="text-sm whitespace-pre-wrap break-words">
                           {displayContent}
                         </p>
                         {hasTranslation && (
@@ -321,7 +304,7 @@ export function ChatMessageList({ messages, currentUserId, currentUserLanguage, 
                   </div>
 
                   <span className="text-xs text-muted-foreground mt-1">
-                    {format(message.timestamp, "HH:mm")}
+                    {format(message.timestamp, "h:mm a")}
                   </span>
                 </div>
               </div>
