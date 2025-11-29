@@ -62,10 +62,8 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
     const [hoveredChat, setHoveredChat] = useState<string | null>(null);
-    const [currentTab, setCurrentTab] = useState<'chats' | 'archived'>('chats');
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
-    const [hoveredChat, setHoveredChat] = useState<string | null>(null);
 
     useEffect(() => {
       if (!db || !user) return;
@@ -188,46 +186,6 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
     };
 
 
-    const handleDeleteConversation = async () => {
-        if (!db || !conversationToDelete) return;
-
-        try {
-            // Delete all messages in the conversation
-            const messagesRef = collection(db, 'conversations', conversationToDelete, 'messages');
-            const messagesSnap = await getDocs(messagesRef);
-            const deletePromises = messagesSnap.docs.map(doc => deleteDoc(doc.ref));
-            await Promise.all(deletePromises);
-
-            // Delete the conversation document
-            await deleteDoc(doc(db, 'conversations', conversationToDelete));
-
-            // Refresh conversations
-            if (user) {
-                const userConvos = await getUserConversations(db, user.uid);
-                setConversations(userConvos);
-            }
-
-            // Clear selection if deleted conversation was selected
-            if (selectedChatId === conversationToDelete) {
-                onChatSelect('');
-            }
-
-            toast({
-                title: "Deleted",
-                description: "Conversation deleted permanently"
-            });
-        } catch (error) {
-            console.error('Error deleting conversation:', error);
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'Failed to delete conversation.'
-            });
-        } finally {
-            setDeleteDialogOpen(false);
-            setConversationToDelete(null);
-        }
-    };
 
     const handleAvatarClick = async (userId: string) => {
         if (!db) return;
