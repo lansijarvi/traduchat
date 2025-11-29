@@ -90,14 +90,14 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             onClick={handleTranslate}
             disabled={isLoading}
             className={cn(
-                "absolute -bottom-5 opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7",
-                isMyMessage ? "right-1" : "left-1"
+                "absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 bg-background/80 backdrop-blur-sm hover:bg-background",
+                isMyMessage ? "" : ""
             )}>
-              <Globe className={cn("h-4 w-4", isLoading ? "animate-spin" : "", isTranslated ? "text-accent" : "text-muted-foreground")} />
+              <Globe className={cn("h-3.5 w-3.5", isLoading ? "animate-spin" : "", isTranslated ? "text-cyan" : "text-muted-foreground")} />
            </Button>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
         </p>
       </div>
       {isMyMessage && sender && (
