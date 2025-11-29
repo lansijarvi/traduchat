@@ -33,16 +33,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 interface ChatSidebarProps {
   onChatSelect: (chatId: string) => void;
@@ -59,9 +49,6 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
     const [userLanguage, setUserLanguage] = useState('en');
     const [profileModalOpen, setProfileModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<any>(null);
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
-    const [hoveredChat, setHoveredChat] = useState<string | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
 
