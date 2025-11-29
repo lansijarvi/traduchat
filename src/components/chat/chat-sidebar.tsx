@@ -12,7 +12,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Globe, LogOut, Search, Settings, User as UserIcon, Users, MessageSquare, BookOpen } from 'lucide-react';
+import { Globe, LogOut, Archive, Trash2, MessageSquare, Users, User as UserIcon } from 'lucide-react';
 import { getUserConversations, type ConversationData } from '@/lib/conversation-helpers';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -20,9 +20,29 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs } from 'firebase/firestore';
 import { QuickPhrasesPanel } from './quick-phrases-panel';
 import { UserProfileModal } from "@/components/user-profile-modal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ChatSidebarProps {
   onChatSelect: (chatId: string) => void;
@@ -39,6 +59,13 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
     const [userLanguage, setUserLanguage] = useState('en');
     const [profileModalOpen, setProfileModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<any>(null);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+    const [hoveredChat, setHoveredChat] = useState<string | null>(null);
+    const [currentTab, setCurrentTab] = useState<'chats' | 'archived'>('chats');
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+    const [hoveredChat, setHoveredChat] = useState<string | null>(null);
 
     useEffect(() => {
       if (!db || !user) return;
@@ -86,6 +113,122 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
         }
     };
 
+    const handleArchiveConversation = async (conversationId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!db || !user) return;
+
+        try {
+            const convRef = doc(db, 'conversations', conversationId);
+            const convSnap = await getDoc(convRef);
+            const currentArchived = convSnap.data()?.archived || {};
+            
+            await updateDoc(convRef, {
+                [`archived.${user.uid}`]: !currentArchived[user.uid]
+            });
+
+            // Refresh conversations
+            const userConvos = await getUserConversations(db, user.uid);
+            setConversations(userConvos);
+
+            toast({
+                title: currentArchived[user.uid] ? "Unarchived" : "Archived",
+                description: currentArchived[user.uid] 
+                    ? "Conversation moved back to chats" 
+                    : "Conversation archived successfully"
+            });
+        } catch (error) {
+            console.error('Error archiving conversation:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to archive conversation.'
+            });
+        }
+    };
+
+    const handleDeleteConversation = async () => {
+        if (!db || !conversationToDelete) return;
+
+        try {
+            // Delete all messages in the conversation
+            const messagesRef = collection(db, 'conversations', conversationToDelete, 'messages');
+            const messagesSnap = await getDocs(messagesRef);
+            const deletePromises = messagesSnap.docs.map(doc => deleteDoc(doc.ref));
+            await Promise.all(deletePromises);
+
+            // Delete the conversation document
+            await deleteDoc(doc(db, 'conversations', conversationToDelete));
+
+            // Refresh conversations
+            if (user) {
+                const userConvos = await getUserConversations(db, user.uid);
+                setConversations(userConvos);
+            }
+
+            // Clear selection if deleted conversation was selected
+            if (selectedChatId === conversationToDelete) {
+                onChatSelect('');
+            }
+
+            toast({
+                title: "Deleted",
+                description: "Conversation deleted permanently"
+            });
+        } catch (error) {
+            console.error('Error deleting conversation:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to delete conversation.'
+            });
+        } finally {
+            setDeleteDialogOpen(false);
+            setConversationToDelete(null);
+        }
+    };
+
+
+    const handleDeleteConversation = async () => {
+        if (!db || !conversationToDelete) return;
+
+        try {
+            // Delete all messages in the conversation
+            const messagesRef = collection(db, 'conversations', conversationToDelete, 'messages');
+            const messagesSnap = await getDocs(messagesRef);
+            const deletePromises = messagesSnap.docs.map(doc => deleteDoc(doc.ref));
+            await Promise.all(deletePromises);
+
+            // Delete the conversation document
+            await deleteDoc(doc(db, 'conversations', conversationToDelete));
+
+            // Refresh conversations
+            if (user) {
+                const userConvos = await getUserConversations(db, user.uid);
+                setConversations(userConvos);
+            }
+
+            // Clear selection if deleted conversation was selected
+            if (selectedChatId === conversationToDelete) {
+                onChatSelect('');
+            }
+
+            toast({
+                title: "Deleted",
+                description: "Conversation deleted permanently"
+            });
+        } catch (error) {
+            console.error('Error deleting conversation:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to delete conversation.'
+            });
+        } finally {
+            setDeleteDialogOpen(false);
+            setConversationToDelete(null);
+        }
+    };
+
     const handleAvatarClick = async (userId: string) => {
         if (!db) return;
         try {
@@ -110,7 +253,6 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
         }
     };
 
-
     const handleLogout = async () => {
       if (!auth) return;
       try {
@@ -125,21 +267,28 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
       }
     };
 
-    const allChats = conversations.map(conv => {
-      const otherUserId = conv.participants.find(p => p !== user?.uid);
-      const otherUserDetails = otherUserId ? conv.participantDetails[otherUserId] : null;
-      return {
-        id: conv.id,
-        lastMessage: conv.lastMessage,
-        lastMessageAt: conv.lastMessageTimestamp,
-        unreadCount: user?.uid ? (conv.unreadCount?.[user.uid] || 0) : 0,
-        otherUserId: otherUserId,
-        otherUser: otherUserDetails ? {
-          displayName: otherUserDetails.displayName,
-          avatarUrl: otherUserDetails.avatarUrl || undefined,
-        } : null,
-      };
-    });
+    const allChats = conversations
+      .filter(conv => {
+        const isArchived = conv.archived?.[user?.uid || ''] || false;
+        return currentTab === 'archived' ? isArchived : !isArchived;
+      })
+      .map(conv => {
+        const otherUserId = conv.participants.find(p => p !== user?.uid);
+        const otherUserDetails = otherUserId ? conv.participantDetails[otherUserId] : null;
+        const isArchived = conv.archived?.[user?.uid || ''] || false;
+        return {
+          id: conv.id,
+          lastMessage: conv.lastMessage,
+          lastMessageAt: conv.lastMessageTimestamp,
+          unreadCount: user?.uid ? (conv.unreadCount?.[user.uid] || 0) : 0,
+          otherUserId: otherUserId,
+          isArchived: isArchived,
+          otherUser: otherUserDetails ? {
+            displayName: otherUserDetails.displayName,
+            avatarUrl: otherUserDetails.avatarUrl || undefined,
+          } : null,
+        };
+      });
 
   return (
     <>
@@ -184,20 +333,48 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
         </SidebarMenu>
         
         <SidebarSeparator />
-        <div className="p-2 flex items-center">
+        
+        {/* Tabs for Chats / Archived */}
+        <div className="p-2 flex gap-2">
+          <Button
+            variant={currentTab === 'chats' ? 'default' : 'ghost'}
+            size="sm"
+            className="flex-1"
+            onClick={() => setCurrentTab('chats')}
+          >
             <MessageSquare className="h-4 w-4 mr-2" />
-            <h2 className="font-semibold text-sm">Chats</h2>
+            Chats
+          </Button>
+          <Button
+            variant={currentTab === 'archived' ? 'default' : 'ghost'}
+            size="sm"
+            className="flex-1"
+            onClick={() => setCurrentTab('archived')}
+          >
+            <Archive className="h-4 w-4 mr-2" />
+            Archived
+          </Button>
         </div>
+
         <SidebarMenu className="px-2">
           {loading ? (
             <div className="p-4 text-center text-sm text-muted-foreground">Loading...</div>
           ) : allChats.length === 0 ? (
-            <div className="p-4 text-center text-sm text-muted-foreground">No chats yet. Add a friend to start chatting!</div>
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              {currentTab === 'archived' ? 'No archived chats' : 'No chats yet. Add a friend to start chatting!'}
+            </div>
           ) : (
             allChats.map(chat => {
               if (!chat.otherUser) return null;
+              const isHovered = hoveredChat === chat.id;
               return (
-                <SidebarMenuItem key={chat.id} onClick={() => onChatSelect(chat.id)}>
+                <SidebarMenuItem 
+                  key={chat.id} 
+                  onClick={() => onChatSelect(chat.id)}
+                  onMouseEnter={() => setHoveredChat(chat.id)}
+                  onMouseLeave={() => setHoveredChat(null)}
+                  className="relative group"
+                >
                   <SidebarMenuButton
                     isActive={selectedChatId === chat.id}
                     className="h-auto p-2 justify-start hover:bg-sidebar-accent"
@@ -227,6 +404,32 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
                       )}
                     </div>
                   </SidebarMenuButton>
+                  
+                  {/* Archive and Delete buttons - appear on hover */}
+                  {isHovered && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 bg-sidebar-accent rounded-md p-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={(e) => handleArchiveConversation(chat.id, e)}
+                      >
+                        <Archive className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConversationToDelete(chat.id);
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </SidebarMenuItem>
               )
             })
@@ -249,6 +452,7 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
         </div>
       </SidebarFooter>
 
+      {/* User Profile Modal */}
       {selectedUser && (
         <UserProfileModal
           open={profileModalOpen}
@@ -257,6 +461,26 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
         />
       )}
 
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this conversation and all its messages. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteConversation}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
