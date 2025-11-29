@@ -52,6 +52,7 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
     const [currentTab, setCurrentTab] = useState<'chats' | 'archived'>('chats');
+    const [hoveredChat, setHoveredChat] = useState<string | null>(null);
 
     useEffect(() => {
       if (!db || !user) return;
