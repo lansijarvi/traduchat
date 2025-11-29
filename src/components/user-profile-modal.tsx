@@ -156,12 +156,20 @@ export function UserProfileModal({ open, onOpenChange, user }: UserProfileModalP
                       {COUNTRIES[user.country] || "🌍"} {user.country}
                     </Badge>
                   )}
-                  {user.createdAt && (
-                    <Badge variant="outline" className="gap-1">
-                      <Calendar className="h-3 w-3" />
-                      Joined {format(user.createdAt, 'MMM yyyy')}
-                    </Badge>
-                  )}
+                  {user.createdAt && (() => {
+                    try {
+                      const date = user.createdAt instanceof Date ? user.createdAt : new Date(user.createdAt);
+                      if (isNaN(date.getTime())) return null;
+                      return (
+                        <Badge variant="outline" className="gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Joined {format(date, 'MMM yyyy')}
+                        </Badge>
+                      );
+                    } catch {
+                      return null;
+                    }
+                  })()}
                 </div>
               </div>
 
