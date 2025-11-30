@@ -111,6 +111,30 @@ export function FriendList() {
     }
   };
 
+  const handleAvatarClick = async (userId: string) => {
+    if (!db) return;
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setSelectedProfile({
+          uid: userId,
+          displayName: userData.displayName || 'Unknown User',
+          username: userData.username,
+          bio: userData.bio,
+          avatarUrl: userData.avatarUrl,
+          country: userData.country,
+          language: userData.language,
+          createdAt: userData.createdAt?.toDate(),
+          gallery: userData.gallery || { photos: [], videos: [] },
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+
   if (loading) {
     return (
       <div className="flex justify-center p-8">
@@ -133,13 +157,7 @@ export function FriendList() {
         <Card key={friend.uid}>
           <CardContent className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
-              <Avatar className="cursor-pointer hover:ring-2 hover:ring-cyan transition-all" onClick={() => setSelectedProfile({
-                ...friend,
-                bio: friend.bio || '',
-                country: friend.country || '',
-                createdAt: friend.createdAt?.toDate ? friend.createdAt.toDate() : new Date(),
-                gallery: friend.gallery || { photos: [], videos: [] }
-              })}>
+              <Avatar className="cursor-pointer hover:ring-2 hover:ring-cyan transition-all" onClick={() => handleAvatarClick(friend.uid)}>
                 <AvatarImage src={friend.avatarUrl} />
                 <AvatarFallback>{(friend?.username?.[0]?.toUpperCase() || "U")}</AvatarFallback>
               </Avatar>
