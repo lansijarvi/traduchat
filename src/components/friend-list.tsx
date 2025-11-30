@@ -133,7 +133,13 @@ export function FriendList() {
         <Card key={friend.uid}>
           <CardContent className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
-              <Avatar className="cursor-pointer hover:ring-2 hover:ring-cyan transition-all" onClick={() => setSelectedProfile(friend)}>
+              <Avatar className="cursor-pointer hover:ring-2 hover:ring-cyan transition-all" onClick={() => setSelectedProfile({
+                ...friend,
+                bio: friend.bio || '',
+                country: friend.country || '',
+                createdAt: friend.createdAt || new Date(),
+                gallery: friend.gallery || { photos: [], videos: [] }
+              })}>
                 <AvatarImage src={friend.avatarUrl} />
                 <AvatarFallback>{(friend?.username?.[0]?.toUpperCase() || "U")}</AvatarFallback>
               </Avatar>
