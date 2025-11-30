@@ -26,9 +26,27 @@ export interface UserProfile {
 // Search users by username
 export async function searchUsersByUsername(db: Firestore, searchTerm: string): Promise<UserProfile[]> {
   const usersRef = collection(db, 'users');
-  const q = query(usersRef, where('username', '>=', searchTerm.toLowerCase()), where('username', '<=', searchTerm.toLowerCase() + '\uf8ff'));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => doc.data() as UserProfile);
+  const lowerSearch = searchTerm.toLowerCase();
+  
+  // Get all users and filter in memory (Firestore doesn't support OR queries easily)
+  const snapshot = await getDocs(usersRef);
+  
+  const results = snapshot.docs
+    .map(doc => doc.data() as UserProfile)
+    .filter(user => {
+      // Search by username (partial match)
+      if (user.username?.toLowerCase().includes(lowerSearch)) return true;
+      
+      // Search by email (exact or partial match)
+      if (user.email?.toLowerCase().includes(lowerSearch)) return true;
+      
+      // Search by display name (partial match)
+      if (user.displayName?.toLowerCase().includes(lowerSearch)) return true;
+      
+      return false;
+    });
+  
+  return results;
 }
 
 // Send friend request

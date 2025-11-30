@@ -10,6 +10,7 @@ import { getFriends, deleteFriend, type UserProfile } from "@/lib/firestore-help
 import { createConversation } from "@/lib/conversation-helpers";
 import { Loader2, MessageSquare, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { UserProfileModal } from "@/components/user-profile-modal";
 import { doc, getDoc } from "firebase/firestore";
 import {
   AlertDialog,
@@ -31,6 +32,7 @@ export function FriendList() {
   const [friends, setFriends] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     if (!db || !user) return;
@@ -131,7 +133,7 @@ export function FriendList() {
         <Card key={friend.uid}>
           <CardContent className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
-              <Avatar>
+              <Avatar className="cursor-pointer hover:ring-2 hover:ring-cyan transition-all" onClick={() => setSelectedProfile(friend)}>
                 <AvatarImage src={friend.avatarUrl} />
                 <AvatarFallback>{(friend?.username?.[0]?.toUpperCase() || "U")}</AvatarFallback>
               </Avatar>
@@ -182,6 +184,15 @@ export function FriendList() {
           </CardContent>
         </Card>
       ))}
+      
+      {/* Profile Modal */}
+      {selectedProfile && (
+        <UserProfileModal
+          open={!!selectedProfile}
+          onOpenChange={(open) => !open && setSelectedProfile(null)}
+          user={selectedProfile}
+        />
+      )}
     </div>
   );
 }

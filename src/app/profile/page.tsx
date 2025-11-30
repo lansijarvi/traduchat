@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser, useFirestore } from "@/firebase";
-import { doc, getDoc, updateDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, updateDoc, setDoc, serverTimestamp, arrayUnion, arrayRemove } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useStorage } from "@/firebase";
 import { useEffect, useState, useRef } from "react";
@@ -22,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -31,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Upload, Camera } from "lucide-react";
+import { ArrowLeft, Upload, Camera, Image as ImageIcon, Video, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -91,6 +92,8 @@ export default function ProfilePage() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [customAvatarUrl, setCustomAvatarUrl] = useState<string | null>(null);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [gallery, setGallery] = useState<{ photos: string[], videos: string[] }>({ photos: [], videos: [] });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<ProfileFormValues>({
@@ -127,6 +130,7 @@ export default function ProfilePage() {
             useGoogleAvatar: data.useGoogleAvatar !== false,
           });
           setCustomAvatarUrl(data.customAvatarUrl || null);
+          setGallery({ photos: data.gallery?.photos || [], videos: data.gallery?.videos || [] });
         } else {
           const defaultUsername = user.email?.split('@')[0]?.toLowerCase().replace(/[^a-z0-9_.]/g, '') || 'user';
           form.reset({
@@ -188,6 +192,80 @@ export default function ProfilePage() {
       });
     } finally {
       setUploadingAvatar(false);
+    }
+  };
+
+
+  const handleGalleryUpload = async (files: FileList | null, type: 'photos' | 'videos') => {
+    if (!files || files.length === 0 || !user || !storage || !db) return;
+    
+    setUploadingMedia(true);
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        const timestamp = Date.now();
+        const fileName = `${user.uid}/gallery/${type}/${timestamp}_${file.name}`;
+        const storageRef = ref(storage, fileName);
+        
+        await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(storageRef);
+        return downloadURL;
+      });
+
+      const uploadedURLs = await Promise.all(uploadPromises);
+
+      // Update Firestore
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        [`gallery.${type}`]: arrayUnion(...uploadedURLs)
+      });
+
+      // Update local state
+      setGallery(prev => ({
+        ...prev,
+        [type]: [...prev[type], ...uploadedURLs]
+      }));
+
+      toast({
+        title: "Upload successful!",
+        description: `${uploadedURLs.length} ${type} uploaded successfully.`,
+      });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: error.message || "Failed to upload files.",
+      });
+    } finally {
+      setUploadingMedia(false);
+    }
+  };
+
+  const handleDeleteMedia = async (url: string, type: 'photos' | 'videos') => {
+    if (!user || !db) return;
+    
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        [`gallery.${type}`]: arrayRemove(url)
+      });
+
+      setGallery(prev => ({
+        ...prev,
+        [type]: prev[type].filter(item => item !== url)
+      }));
+
+      toast({
+        title: "Deleted",
+        description: "Media removed from your gallery.",
+      });
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      toast({
+        variant: "destructive",
+        title: "Delete failed",
+        description: error.message,
+      });
     }
   };
 
@@ -440,6 +518,140 @@ export default function ProfilePage() {
                   </FormItem>
                 )}
               />
+
+
+              {/* Gallery Section */}
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold mb-4">Photo & Video Gallery</h3>
+                <Tabs defaultValue="photos" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="photos" className="gap-2">
+                      <ImageIcon className="h-4 w-4" />
+                      Photos ({gallery?.photos?.length || 0})
+                    </TabsTrigger>
+                    <TabsTrigger value="videos" className="gap-2">
+                      <Video className="h-4 w-4" />
+                      Videos ({gallery?.videos?.length || 0})
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="photos" className="mt-4 space-y-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      disabled={uploadingMedia}
+                      onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/*';
+                        input.multiple = true;
+                        input.onchange = (e) => handleGalleryUpload((e.target as HTMLInputElement).files, 'photos');
+                        input.click();
+                      }}
+                    >
+                      {uploadingMedia ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload Photos
+                        </>
+                      )}
+                    </Button>
+
+                    {(gallery?.photos?.length || 0) > 0 ? (
+                      <div className="grid grid-cols-3 gap-2">
+                        {(gallery?.photos || []).map((photo, index) => (
+                          <div key={index} className="relative group aspect-square rounded-lg overflow-hidden">
+                            <img
+                              src={photo}
+                              alt={`Photo ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => handleDeleteMedia(photo, 'photos')}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>No photos yet</p>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="videos" className="mt-4 space-y-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      disabled={uploadingMedia}
+                      onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'video/*';
+                        input.multiple = true;
+                        input.onchange = (e) => handleGalleryUpload((e.target as HTMLInputElement).files, 'videos');
+                        input.click();
+                      }}
+                    >
+                      {uploadingMedia ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload Videos
+                        </>
+                      )}
+                    </Button>
+
+                    {(gallery?.videos?.length || 0) > 0 ? (
+                      <div className="space-y-4">
+                        {(gallery?.videos || []).map((video, index) => (
+                          <div key={index} className="relative group rounded-lg overflow-hidden bg-black">
+                            <video
+                              src={video}
+                              controls
+                              className="w-full"
+                            >
+                              Your browser does not support video playback.
+                            </video>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => handleDeleteMedia(video, 'videos')}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Video className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>No videos yet</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </div>
 
               <Button type="submit" className="w-full bg-cyan hover:bg-cyan/90 touch-manipulation active:scale-95 transition-transform">
                 Save Changes
