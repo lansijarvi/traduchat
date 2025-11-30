@@ -137,7 +137,7 @@ export function FriendList() {
                 ...friend,
                 bio: friend.bio || '',
                 country: friend.country || '',
-                createdAt: friend.createdAt || new Date(),
+                createdAt: friend.createdAt?.toDate ? friend.createdAt.toDate() : new Date(),
                 gallery: friend.gallery || { photos: [], videos: [] }
               })}>
                 <AvatarImage src={friend.avatarUrl} />
