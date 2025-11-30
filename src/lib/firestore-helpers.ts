@@ -10,7 +10,8 @@ import {
   serverTimestamp,
   setDoc,
   deleteDoc,
-  or
+  or,
+  and
 } from 'firebase/firestore';
 import type { Firestore } from 'firebase/firestore';
 
@@ -113,12 +114,14 @@ export async function deleteFriend(db: Firestore, userId: string, friendId: stri
   const q = query(
     friendshipsRef,
     or(
-      where('fromUserId', '==', userId),
-      where('toUserId', '==', userId)
-    ),
-    or(
-      where('fromUserId', '==', friendId),
-      where('toUserId', '==', friendId)
+      and(
+        where('fromUserId', '==', userId),
+        where('toUserId', '==', friendId)
+      ),
+      and(
+        where('fromUserId', '==', friendId),
+        where('toUserId', '==', userId)
+      )
     ),
     where('status', '==', 'accepted')
   );
