@@ -88,7 +88,7 @@ export function ChatHeader({ name, avatarUrl, status, language, onBack, userId }
           </Button>
         )}
         <Avatar 
-          className="h-8 w-8 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+          className="h-8 w-8 shrink-0 "
           
         >
           <AvatarImage src={avatarUrl} alt={name} />
