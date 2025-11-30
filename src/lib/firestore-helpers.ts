@@ -109,48 +109,12 @@ export async function getFriends(db: Firestore, userId: string): Promise<UserPro
 
 export async function deleteFriend(db: Firestore, userId: string, friendId: string): Promise<void> {
   const friendshipsRef = collection(db, 'friendships');
-  
-  // Find the friendship document
-  const q = query(
-    friendshipsRef,
-    or(
-      and(
-        where('fromUserId', '==', userId),
-        where('toUserId', '==', friendId)
-      ),
-      and(
-        where('fromUserId', '==', friendId),
-        where('toUserId', '==', userId)
-      )
-    ),
-    where('status', '==', 'accepted')
-  );
-
-  const querySnapshot = await getDocs(q);
-
-  if (!querySnapshot.empty) {
-    // Should only be one, but we'll loop just in case
-    for (const docSnap of querySnapshot.docs) {
-      await deleteDoc(doc(db, 'friendships', docSnap.id));
-    }
-  } else {
-    // This case might be more complex if the friendship doc is not found as expected.
-    // Fallback queries if the compound `or` is not supported or misbehaving.
-    const q1 = query(friendshipsRef, where('fromUserId', '==', userId), where('toUserId', '==', friendId), where('status', '==', 'accepted'));
-    const q2 = query(friendshipsRef, where('toUserId', '==', userId), where('fromUserId', '==', friendId), where('status', '==', 'accepted'));
-    
-    const [snapshot1, snapshot2] = await Promise.all([getDocs(q1), getDocs(q2)]);
-    
-    for (const docSnap of snapshot1.docs) {
-      await deleteDoc(doc(db, 'friendships', docSnap.id));
-    }
-    for (const docSnap of snapshot2.docs) {
-      await deleteDoc(doc(db, 'friendships', docSnap.id));
+  const snapshot = await getDocs(friendshipsRef);
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data();
+    if (((data.fromUserId === userId && data.toUserId === friendId) || (data.fromUserId === friendId && data.toUserId === userId)) && data.status === 'accepted') {
+      await deleteDoc(docSnap.ref);
+      break;
     }
   }
-
-  // Also delete the conversation
-  const conversationId = [userId, friendId].sort().join('_');
-  const conversationRef = doc(db, 'conversations', conversationId);
-  await deleteDoc(conversationRef);
 }
