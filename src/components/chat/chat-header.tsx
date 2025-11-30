@@ -89,7 +89,7 @@ export function ChatHeader({ name, avatarUrl, status, language, onBack, userId }
         )}
         <Avatar 
           className="h-8 w-8 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={handleAvatarClick}
+          
         >
           <AvatarImage src={avatarUrl} alt={name} />
           <AvatarFallback className="text-xs">{(name?.[0] || "U")}</AvatarFallback>
