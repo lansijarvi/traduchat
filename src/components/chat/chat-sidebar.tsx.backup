@@ -12,7 +12,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Globe, LogOut, Trash2, User as UserIcon, Users, MessageSquare } from 'lucide-react';
+import { Globe, LogOut, Search, Settings, User as UserIcon, Users, MessageSquare, BookOpen } from 'lucide-react';
 import { getUserConversations, type ConversationData } from '@/lib/conversation-helpers';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -20,19 +20,9 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { QuickPhrasesPanel } from './quick-phrases-panel';
 import { UserProfileModal } from "@/components/user-profile-modal";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 interface ChatSidebarProps {
   onChatSelect: (chatId: string) => void;
@@ -49,9 +39,6 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
     const [userLanguage, setUserLanguage] = useState('en');
     const [profileModalOpen, setProfileModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<any>(null);
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
-    const [hoveredChat, setHoveredChat] = useState<string | null>(null);
 
     useEffect(() => {
       if (!db || !user) return;
@@ -99,47 +86,6 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
         }
     };
 
-    const handleDeleteConversation = async () => {
-        if (!db || !conversationToDelete) return;
-
-        try {
-            // Delete all messages in the conversation
-            const messagesRef = collection(db, 'conversations', conversationToDelete, 'messages');
-            const messagesSnap = await getDocs(messagesRef);
-            const deletePromises = messagesSnap.docs.map(doc => deleteDoc(doc.ref));
-            await Promise.all(deletePromises);
-
-            // Delete the conversation document
-            await deleteDoc(doc(db, 'conversations', conversationToDelete));
-
-            // Refresh conversations
-            if (user) {
-                const userConvos = await getUserConversations(db, user.uid);
-                setConversations(userConvos);
-            }
-
-            // Clear selection if deleted conversation was selected
-            if (selectedChatId === conversationToDelete) {
-                onChatSelect('');
-            }
-
-            toast({
-                title: "Deleted",
-                description: "Conversation deleted permanently"
-            });
-        } catch (error) {
-            console.error('Error deleting conversation:', error);
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'Failed to delete conversation.'
-            });
-        } finally {
-            setDeleteDialogOpen(false);
-            setConversationToDelete(null);
-        }
-    };
-
     const handleAvatarClick = async (userId: string) => {
         if (!db) return;
         try {
@@ -163,6 +109,7 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
             console.error('Error fetching user profile:', error);
         }
     };
+
 
     const handleLogout = async () => {
       if (!auth) return;
@@ -249,15 +196,8 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
           ) : (
             allChats.map(chat => {
               if (!chat.otherUser) return null;
-              const isHovered = hoveredChat === chat.id;
               return (
-                <SidebarMenuItem 
-                  key={chat.id} 
-                  onClick={() => onChatSelect(chat.id)}
-                  onMouseEnter={() => setHoveredChat(chat.id)}
-                  onMouseLeave={() => setHoveredChat(null)}
-                  className="relative"
-                >
+                <SidebarMenuItem key={chat.id} onClick={() => onChatSelect(chat.id)}>
                   <SidebarMenuButton
                     isActive={selectedChatId === chat.id}
                     className="h-auto p-2 justify-start hover:bg-sidebar-accent"
@@ -287,22 +227,6 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
                       )}
                     </div>
                   </SidebarMenuButton>
-                  
-                  {/* Delete button - appears on hover */}
-                  {isHovered && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 bg-sidebar-accent text-destructive hover:text-destructive hover:bg-sidebar-accent"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setConversationToDelete(chat.id);
-                        setDeleteDialogOpen(true);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
                 </SidebarMenuItem>
               )
             })
@@ -332,27 +256,6 @@ export function ChatSidebar({ onChatSelect, selectedChatId }: ChatSidebarProps) 
           user={selectedUser}
         />
       )}
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Conversation?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this conversation and all its messages. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeleteConversation}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
     </>
   );
